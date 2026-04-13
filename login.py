@@ -15,9 +15,8 @@ while running:
     # 1. EVENTS
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
-            running = False
-
-        # 👇 NEW: Detect mouse click
+            running = False 
+            
         if event.type == pygame.MOUSEBUTTONDOWN:        # Player clicked anywhere
             if exit_rect.collidepoint(event.pos):       # Was it ON the icon?
                 running = False                         # Then exit!
