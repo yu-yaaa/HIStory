@@ -1,4 +1,20 @@
-import pygame.examples.aliens as aliens
-aliens.main()
+import pygame
+from sys import exit
 
-#This is just an example of a pygame game, just erase this dont worry :D
+pygame.init()
+screen = pygame.display.set_mode((800,600),pygame.RESIZABLE)
+pygame.display.set_caption('HIStory')
+clock = pygame.time.Clock()
+
+mainmenubg = pygame.image.load('Assets/Main Menu background.png').convert_alpha()
+
+while True:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+
+    screen.blit(mainmenubg,(0,0))
+
+    pygame.display.update()
+    clock.tick(60)
