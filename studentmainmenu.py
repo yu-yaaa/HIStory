@@ -1,9 +1,6 @@
 import pygame
 from sys import exit
-
-# ── NEW: import the storyline module ────────────────────────────────────────
-from storyline import get_chapter_class
-# ────────────────────────────────────────────────────────────────────────────
+from studentstoryline import get_chapter_class
 
 pygame.init()
 
@@ -41,9 +38,8 @@ CHARACTERS = [
 
 current_character = 0
 
-# ── NEW: tracks which chapter/story the player has selected ─────────────────
-current_story = 0   # mirrors current_character; updated on character click
-# ────────────────────────────────────────────────────────────────────────────
+current_story = 0   
+
 
 button_labels = ['Play', 'Player Profile', 'Progress Track', 'Exit']
 button_width  = int(screen_width  * 0.24)
@@ -202,28 +198,21 @@ def draw_carousel(mouse_pos):
     draw_label(name_rect,  character["name"],  (200, 160, 20), (255, 230, 80),  (40, 10, 5),     name_font)
     draw_label(story_rect, character["story"], (30, 50, 140),  (100, 160, 255), (230, 240, 255), story_font)
 
-    # ── NEW: draw a subtle "Selected" highlight when character is clicked ──
     if current_story == current_character:
         glow_rect = char_rect.inflate(10, 10)
         pygame.draw.rect(screen, (255, 204, 0), glow_rect, 3, border_radius=8)
-    # ───────────────────────────────────────────────────────────────────────
 
-
-# ── NEW: launch the correct story chapter ───────────────────────────────────
 def launch_story(chapter_index: int):
-    """
-    Instantiates the correct StoryChapter class for the given index
-    and calls its run() method.  Returns when the chapter ends.
-    """
+
     chapter_class = get_chapter_class(chapter_index)
 
     if chapter_class is None:
-        # Chapter not yet implemented – show a brief "Coming Soon" overlay
+
         _show_coming_soon_overlay()
         return
 
-    story = chapter_class(screen, clock)   # OOP: instantiate
-    story.run()                            # OOP: call the run method
+    story = chapter_class(screen, clock)   
+    story.run()                           
 
 
 def _show_coming_soon_overlay():
@@ -260,8 +249,6 @@ def _show_coming_soon_overlay():
 
         pygame.display.update()
         clock.tick(60)
-# ────────────────────────────────────────────────────────────────────────────
-
 
 running = True
 
@@ -280,10 +267,8 @@ while running:
                         pygame.quit()
                         exit()
 
-                    # ── NEW: Play button → launch the selected story ─────
                     if btn['label'] == 'Play':
                         launch_story(current_story)
-                    # ────────────────────────────────────────────────────
 
             if left_arrow.collidepoint(event.pos):
                 current_character = (current_character - 1) % len(CHARACTERS)
@@ -291,10 +276,9 @@ while running:
             if right_arrow.collidepoint(event.pos):
                 current_character = (current_character + 1) % len(CHARACTERS)
 
-            # ── NEW: clicking the character portrait selects that chapter ─
             if char_rect.collidepoint(event.pos):
                 current_story = current_character
-            # ──────────────────────────────────────────────────────────────
+
 
     screen.blit(bg_scaled,   (0, 0))
     screen.blit(logo_scaled, (int(screen_width * 0.02), int(screen_height * 0.02)))

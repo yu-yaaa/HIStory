@@ -1,19 +1,7 @@
 import pygame
 import sys
 
-
-# ---------------------------------------------------------------------------
-# Base class – every chapter inherits from this
-# ---------------------------------------------------------------------------
 class StoryChapterBase:
-    """
-    Abstract base for all story chapters.
-    Subclasses must implement:
-        - load_assets(self)   → load chapter-specific images / audio
-        - update(self)        → per-frame game logic
-        - render(self)        → per-frame draw calls
-    """
-
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
         self.screen = screen
         self.clock  = clock
@@ -21,50 +9,29 @@ class StoryChapterBase:
 
         self.screen_width, self.screen_height = screen.get_size()
 
-        # Shared fonts (subclasses may override / extend)
         self.title_font = pygame.font.SysFont("Arial", int(self.screen_height * 0.048), bold=True)
         self.body_font  = pygame.font.SysFont("Arial", int(self.screen_height * 0.024))
         self.small_font = pygame.font.SysFont("Arial", int(self.screen_height * 0.018))
 
         self.load_assets()
 
-    # ------------------------------------------------------------------
-    # Override in subclass
-    # ------------------------------------------------------------------
     def load_assets(self):
-        """Load chapter-specific assets here."""
         pass
 
     def update(self):
-        """Per-frame logic (timers, animations, state changes)."""
         pass
 
     def render(self):
-        """Per-frame draw calls."""
         pass
 
-    # ------------------------------------------------------------------
-    # Event hook – override to handle custom events inside a chapter
-    # ------------------------------------------------------------------
     def handle_event(self, event: pygame.event.Event):
-        """
-        Return False to signal 'chapter is done, go back to main menu'.
-        """
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
             self.running = False
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
 
-    # ------------------------------------------------------------------
-    # Main run loop – do NOT override unless you have a good reason
-    # ------------------------------------------------------------------
     def run(self) -> str:
-        """
-        Runs the chapter's event loop.
-        Returns 'menu' when the chapter ends so the caller knows
-        where to go next.
-        """
         self.running = True
         while self.running:
             for event in pygame.event.get():
@@ -75,18 +42,9 @@ class StoryChapterBase:
             pygame.display.update()
             self.clock.tick(60)
 
-        return "menu"   # signal: return to main menu
+        return "menu" 
 
-
-# ---------------------------------------------------------------------------
-# Chapter 1 – Tunku Abdul Rahman / Malaysia Road to Independence
-# ---------------------------------------------------------------------------
 class StoryChapter1(StoryChapterBase):
-    """
-    Chapter 1: Malaysia Road to Independence
-    Protagonist: Tunku Abdul Rahman
-    """
-
     DIALOGUE = [
         {
             "speaker": "Narrator",
@@ -127,11 +85,10 @@ class StoryChapter1(StoryChapterBase):
         },
     ]
 
-    # Colour palette (Malaysian flag inspired)
-    CLR_BG          = (15, 25, 60)        # deep navy
-    CLR_PANEL       = (25, 38, 90, 200)   # semi-transparent navy
-    CLR_ACCENT      = (204, 0, 0)         # Malaysian red
-    CLR_GOLD        = (255, 204, 0)       # Malaysian gold / star
+    CLR_BG          = (15, 25, 60)      
+    CLR_PANEL       = (25, 38, 90, 200)  
+    CLR_ACCENT      = (204, 0, 0)      
+    CLR_GOLD        = (255, 204, 0)   
     CLR_WHITE       = (240, 240, 240)
     CLR_GREY        = (180, 180, 200)
     CLR_BTN_FILL    = (204, 0, 0)
@@ -139,14 +96,12 @@ class StoryChapter1(StoryChapterBase):
     CLR_BTN_BORDER  = (255, 204, 0)
 
     def load_assets(self):
-        # Background
         try:
             bg_raw = pygame.image.load("Assets/Main Menu background.png").convert()
             self.bg = pygame.transform.scale(bg_raw, (self.screen_width, self.screen_height))
         except Exception:
             self.bg = None
 
-        # Character portrait
         try:
             char_raw = pygame.image.load("Assets/Tunku Abdul Rahman.png").convert_alpha()
             char_h   = int(self.screen_height * 0.55)
@@ -155,11 +110,9 @@ class StoryChapter1(StoryChapterBase):
         except Exception:
             self.char_img = None
 
-        # Dialogue state
         self.dialogue_index = 0
         self.total_slides   = len(self.DIALOGUE)
 
-        # "Next" button
         btn_w = int(self.screen_width  * 0.18)
         btn_h = int(self.screen_height * 0.07)
         btn_x = self.screen_width  - btn_w - int(self.screen_width  * 0.04)
@@ -176,7 +129,6 @@ class StoryChapter1(StoryChapterBase):
             back_h,
         )
 
-    # ------------------------------------------------------------------
     def handle_event(self, event: pygame.event.Event):
         super().handle_event(event)   # ESC → menu
 
@@ -192,15 +144,13 @@ class StoryChapter1(StoryChapterBase):
             if self.back_btn.collidepoint(mouse):
                 self.running = False
 
-    # ------------------------------------------------------------------
     def update(self):
         self._mouse_pos = pygame.mouse.get_pos()
 
-    # ------------------------------------------------------------------
     def render(self):
-        # ── Background ──────────────────────────────────────────────────
+
         if self.bg:
-            # dim the background
+
             self.screen.blit(self.bg, (0, 0))
             dim = pygame.Surface((self.screen_width, self.screen_height))
             dim.set_alpha(160)
@@ -209,7 +159,6 @@ class StoryChapter1(StoryChapterBase):
         else:
             self.screen.fill(self.CLR_BG)
 
-        # ── Chapter title bar ────────────────────────────────────────────
         title_surf = self.title_font.render(
             "Chapter 1 – Malaysia Road to Independence", True, self.CLR_GOLD
         )
@@ -221,13 +170,11 @@ class StoryChapter1(StoryChapterBase):
             ),
         )
 
-        # ── Character portrait (left side) ──────────────────────────────
         if self.char_img:
             cx = int(self.screen_width * 0.08)
             cy = int(self.screen_height * 0.35)
             self.screen.blit(self.char_img, (cx, cy))
 
-        # ── Dialogue panel (bottom-centre) ───────────────────────────────
         panel_w = int(self.screen_width  * 0.65)
         panel_h = int(self.screen_height * 0.30)
         panel_x = int(self.screen_width  * 0.22)
@@ -254,7 +201,6 @@ class StoryChapter1(StoryChapterBase):
             (panel_x + int(panel_w * 0.04), panel_y + int(panel_h * 0.08)),
         )
 
-        # Word-wrap the dialogue text
         max_text_w = panel_w - int(panel_w * 0.08)
         words      = text.split()
         lines, line = [], ""
@@ -275,7 +221,6 @@ class StoryChapter1(StoryChapterBase):
             self.screen.blit(ln_surf, (panel_x + int(panel_w * 0.04), text_y))
             text_y += line_h
 
-        # Slide counter
         counter_text = f"{self.dialogue_index + 1} / {self.total_slides}"
         counter_surf = self.small_font.render(counter_text, True, self.CLR_GREY)
         self.screen.blit(
@@ -284,7 +229,6 @@ class StoryChapter1(StoryChapterBase):
              panel_y + int(panel_h * 0.08)),
         )
 
-        # ── Next / Finish button ─────────────────────────────────────────
         is_last   = self.dialogue_index == self.total_slides - 1
         btn_label = "Finish" if is_last else "Next ▶"
         btn_hov   = self.next_btn.collidepoint(self._mouse_pos)
@@ -300,7 +244,6 @@ class StoryChapter1(StoryChapterBase):
             ),
         )
 
-        # ── Back to Menu button ──────────────────────────────────────────
         back_hov  = self.back_btn.collidepoint(self._mouse_pos)
         back_fill = (60, 60, 120) if back_hov else (30, 35, 90)
         pygame.draw.rect(self.screen, back_fill,        self.back_btn, border_radius=8)
@@ -314,7 +257,6 @@ class StoryChapter1(StoryChapterBase):
             ),
         )
 
-        # ── ESC hint ────────────────────────────────────────────────────
         hint = self.small_font.render("Press ESC to return to menu", True, self.CLR_GREY)
         self.screen.blit(
             hint,
@@ -322,10 +264,6 @@ class StoryChapter1(StoryChapterBase):
              self.screen_height - int(self.screen_height * 0.04)),
         )
 
-
-# ---------------------------------------------------------------------------
-# Chapter factory – add more chapters here as the project grows
-# ---------------------------------------------------------------------------
 CHAPTER_MAP = {
     0: StoryChapter1,     # index 0 → Tunku Abdul Rahman chapter
     # 1: StoryChapter2,   # uncomment when Chapter 2 is ready
@@ -333,8 +271,4 @@ CHAPTER_MAP = {
 
 
 def get_chapter_class(chapter_index: int):
-    """
-    Returns the correct StoryChapter class for the given index,
-    or None if the chapter is not yet implemented.
-    """
     return CHAPTER_MAP.get(chapter_index, None)
