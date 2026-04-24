@@ -17,7 +17,6 @@ border_red    = (199, 41, 38)
 button_yellow = (253, 199, 44)
 button_blue   = (43, 64, 143)
 hover_button_blue = (17, 30, 79)
-
 logo_img = pygame.image.load("Assets/HIStory Logo.png")
 logo_img = pygame.transform.scale(logo_img, (screen_width * 0.22, screen_height * 0.2))
 logo_img_rect = logo_img.get_rect()
