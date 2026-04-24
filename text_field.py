@@ -19,7 +19,8 @@ class TextInput:
                  , border_radius = 15
                  , border_color = border_red
                  , border_width = 2
-                 , is_password = False):
+                 , is_password = False
+                 , is_hidden = True):
         
         self.rect = pygame.Rect(x, y, width, height)
         self.text = ""
@@ -31,6 +32,7 @@ class TextInput:
         self.border_colour = border_color
         self.border_width = border_width
         self.is_password = is_password
+        self.is_hidden = is_hidden
 
     def handle_event(self, event):
         # Select text field
@@ -50,6 +52,9 @@ class TextInput:
                     
             else:
                 self.text += event.unicode
+                
+    def toggle_visibility(self):
+        self.is_hidden = not self.is_hidden
 
     def draw(self, screen):
         colour = self.colour_active if self.active else self.colour_inactive
@@ -61,7 +66,7 @@ class TextInput:
         pygame.draw.rect(screen, self.border_colour, self.rect, width=self.border_width, border_radius=self.border_radius)
 
         # to hide password
-        if self.is_password:
+        if self.is_password and self.is_hidden:
             display_text = "*" * len(self.text)
         else:
             display_text = self.text
