@@ -17,7 +17,6 @@ border_red    = (199, 41, 38)
 button_yellow = (253, 199, 44)
 button_blue   = (43, 64, 143)
 hover_button_blue = (17, 30, 79)
-
 logo_img = pygame.image.load("Assets/HIStory Logo.png")
 logo_img = pygame.transform.scale(logo_img, (screen_width * 0.22, screen_height * 0.2))
 logo_img_rect = logo_img.get_rect()
@@ -59,28 +58,84 @@ def draw_text(text, x, y, colour=black, size=font_size, anchor="topleft"):
 def run_login_display(login_box, login_box_rect):
     screen.blit(bg_img, (0, 0))
     screen.blit(login_box, login_box_rect)
-    draw_text("Log In Page", login_box_rect.centerx, login_box_rect.top + int(box_height * 0.09), black, size=72, anchor="center")
+    draw_text("Log In Page", 
+              login_box_rect.centerx, 
+              login_box_rect.top + int(box_height * 0.09), 
+              black, 
+              size=72, 
+              anchor="center")
     screen.blit(logo_img, logo_img_rect)
     screen.blit(exit_img, exit_rect)
-    draw_text("User Name", login_box_rect.left + 30, login_box_rect.top + int(box_height * 0.22), size=50)
-    draw_text("Password",  login_box_rect.left + 30, login_box_rect.top + int(box_height * 0.42), size=50)
+    draw_text("User Name", 
+              login_box_rect.left + 30, 
+              login_box_rect.top + int(box_height * 0.23), 
+              size=50)
+    draw_text("Password",  
+              login_box_rect.left + 30, 
+              login_box_rect.top + int(box_height * 0.45), 
+              size=50)
     username_field.draw(screen)
     password_field.draw(screen)
     confirm_button.draw(screen)
     sign_up_button.draw(screen)
+    show_password_button.draw(screen)
     
 login_box, login_box_rect, box_height, box_width = draw_white_box()
 
-username_field = TextInput(login_box_rect.left + 30, login_box_rect.top + int(box_height * 0.32), int(box_width * 0.9) , 60, font_size=45 )
-password_field = TextInput(login_box_rect.left + 30, login_box_rect.top + int(box_height * 0.52), int(box_width * 0.9) , 60, font_size=45, is_password =True)
+username_field = TextInput(login_box_rect.left + 30, 
+                           login_box_rect.top + int(box_height * 0.34), 
+                           int(box_width * 0.9) , 
+                           60, 
+                           font_size=45 )
+password_field = TextInput(login_box_rect.left + 30, 
+                           login_box_rect.top + int(box_height * 0.56), 
+                           int(box_width * 0.7), 
+                           60, 
+                           font_size=45, 
+                           is_password = True)
 
-confirm_button = Button("Confirm",login_box_rect.centerx - int(box_width * 0.45) // 2,login_box_rect.top + int(box_height * 0.75),int(box_width * 0.45), int(box_height * 0.15),button_blue, hover_button_blue, white,30,0,50, white)
+confirm_button = Button("Confirm",
+                        login_box_rect.centerx - int(box_width * 0.45) // 2,
+                        login_box_rect.top + int(box_height * 0.75),
+                        int(box_width * 0.45), 
+                        int(box_height * 0.15),
+                        button_blue, 
+                        hover_button_blue, 
+                        white,
+                        30,
+                        0,
+                        50, 
+                        white)
 
 btn_w   = int(screen_width  * 0.25)   # button width
 btn_h   = int(screen_height * 0.07)   # button height
 padding = 30                           # gap from screen edge
 
-sign_up_button = Button( "Sign up for an account here", screen_width  - btn_w - padding, screen_height - btn_h - padding, btn_w, btn_h,button_blue, hover_button_blue, white,30,0,50, white)
+sign_up_button = Button( "Sign up for an account here", 
+                        screen_width  - btn_w - padding, 
+                        screen_height - btn_h - padding, 
+                        btn_w, 
+                        btn_h,
+                        button_blue, 
+                        hover_button_blue, 
+                        white,
+                        30,
+                        0,
+                        50, 
+                        white)
+
+show_password_button = Button("SHOW", 
+                    login_box_rect.left + int(box_width * 0.75),
+                    login_box_rect.top + int(box_height * 0.56), 
+                    int(box_width * 0.22),
+                    60,
+                    button_blue, 
+                    hover_button_blue, 
+                    white,
+                    30, 
+                    0,
+                    font_size=int(screen_height * 0.03),
+                    font_color=white)
 
 while running:
     for event in pygame.event.get():
@@ -92,6 +147,9 @@ while running:
 
         username_field.handle_event(event)
         password_field.handle_event(event)
+        if show_password_button.is_clicked(event):
+            password_field.toggle_visibility()
+            show_password_button.text = "HIDE" if not password_field.is_hidden else "SHOW"
         
     run_login_display(login_box, login_box_rect)
     pygame.display.flip()
