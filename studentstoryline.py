@@ -119,7 +119,6 @@ class StoryChapter1(StoryChapterBase):
         btn_y = self.screen_height - btn_h - int(self.screen_height * 0.04)
         self.next_btn = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
 
-        # "Back to Menu" button (top-left)
         back_w = int(self.screen_width  * 0.18)
         back_h = int(self.screen_height * 0.06)
         self.back_btn = pygame.Rect(
@@ -265,8 +264,7 @@ class StoryChapter1(StoryChapterBase):
         )
 
 CHAPTER_MAP = {
-    0: StoryChapter1,     # index 0 → Tunku Abdul Rahman chapter
-    # 1: StoryChapter2,   # uncomment when Chapter 2 is ready
+    0: StoryChapter1,  
 }
 
 

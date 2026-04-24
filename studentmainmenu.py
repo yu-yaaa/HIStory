@@ -216,7 +216,6 @@ def launch_story(chapter_index: int):
 
 
 def _show_coming_soon_overlay():
-    """Briefly displays a 'Coming Soon' message for unimplemented chapters."""
     overlay_font  = pygame.font.SysFont('Arial', int(screen_height * 0.06), bold=True)
     small_f       = pygame.font.SysFont('Arial', int(screen_height * 0.03))
     start_ticks   = pygame.time.get_ticks()
