@@ -1,66 +1,14 @@
 import pygame
 from text_field import TextInput
 from button_class import Button
-
-pygame.init()
-screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-screen_width = screen.get_width()
-screen_height = screen.get_height()
-font_size = int(screen_height * 0.05)
-clock = pygame.time.Clock()
-running = True
-
-# color code
-black         = (40, 40, 40)
-white         = (255, 255, 255)
-border_red    = (199, 41, 38)
-button_yellow = (253, 199, 44)
-button_blue   = (43, 64, 143)
-hover_button_blue = (17, 30, 79)
-logo_img = pygame.image.load("Assets/HIStory Logo.png")
-logo_img = pygame.transform.scale(logo_img, (screen_width * 0.22, screen_height * 0.2))
-logo_img_rect = logo_img.get_rect()
-logo_img_rect.center = (screen_width // 2, screen_height // 4.7)
-
-exit_img = pygame.image.load("Assets/Exit Button.png")
-exit_img = pygame.transform.scale(exit_img, (screen_height * 0.1, screen_height * 0.1))
-exit_rect = exit_img.get_rect()
-exit_rect.bottomleft = (30, screen_height - 30)
-
-bg_img = pygame.image.load("Assets/Log in, Sign up page Background.png")
-bg_img = pygame.transform.scale(bg_img, (screen_width, screen_height))
-
-def draw_white_box():
-    box_width  = int(screen_width  * 0.35)
-    box_height = int(screen_height * 0.5)
-    login_box  = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-    pygame.draw.rect(login_box, (255, 255, 255, 203), (0, 0, box_width, box_height), border_radius=60)
-    line_y_on_box = int(box_height * 0.18)
-    pygame.draw.line(login_box, (0, 0, 0, 0),
-                    (0, line_y_on_box),
-                    (box_width, line_y_on_box), 8)
-    login_box_rect = login_box.get_rect()
-    login_box_rect.center = (screen_width // 2, int(screen_height // 1.9))
-    return login_box, login_box_rect, box_height, box_width
-
-def draw_text(text, x, y, colour=black, size=font_size, anchor="topleft"):
-    f = pygame.font.Font("Assets/Jersey10-Regular.ttf", size)
-    surface = f.render(text, True, colour)
-    rect = surface.get_rect()
-    if anchor == "center":
-        rect.center = (x, y)
-    elif anchor == "topright":
-        rect.topright = (x, y)
-    elif anchor == "topleft":
-        rect.topleft = (x, y)
-    screen.blit(surface, rect)
+from login_register_base import *
 
 def run_login_display(login_box, login_box_rect):
     screen.blit(bg_img, (0, 0))
     screen.blit(login_box, login_box_rect)
     draw_text("Log In Page", 
               login_box_rect.centerx, 
-              login_box_rect.top + int(box_height * 0.09), 
+              login_box_rect.top + int(box_height * 0.06), 
               black, 
               size=72, 
               anchor="center")
@@ -68,12 +16,12 @@ def run_login_display(login_box, login_box_rect):
     screen.blit(exit_img, exit_rect)
     draw_text("User Name", 
               login_box_rect.left + 30, 
-              login_box_rect.top + int(box_height * 0.23), 
-              size=50)
+              login_box_rect.top + int(box_height * 0.2), 
+              size = int(screen_height * 0.04))
     draw_text("Password",  
               login_box_rect.left + 30, 
-              login_box_rect.top + int(box_height * 0.45), 
-              size=50)
+              login_box_rect.top + int(box_height * 0.43), 
+              size = int(screen_height * 0.04))
     username_field.draw(screen)
     password_field.draw(screen)
     confirm_button.draw(screen)
@@ -83,15 +31,16 @@ def run_login_display(login_box, login_box_rect):
 login_box, login_box_rect, box_height, box_width = draw_white_box()
 
 username_field = TextInput(login_box_rect.left + 30, 
-                           login_box_rect.top + int(box_height * 0.34), 
+                           login_box_rect.top + int(box_height * 0.3), 
                            int(box_width * 0.9) , 
                            60, 
-                           font_size=45 )
+                           font_size = int(screen_height * 0.035) )
+
 password_field = TextInput(login_box_rect.left + 30, 
-                           login_box_rect.top + int(box_height * 0.56), 
+                           login_box_rect.top + int(box_height * 0.54), 
                            int(box_width * 0.7), 
-                           60, 
-                           font_size=45, 
+                           60,
+                           font_size = int(screen_height * 0.035), 
                            is_password = True)
 
 confirm_button = Button("Confirm",
