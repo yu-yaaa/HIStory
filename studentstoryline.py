@@ -1,5 +1,6 @@
 import pygame
 import sys
+from debate import DebateGame
 
 class StoryChapterBase:
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
@@ -31,6 +32,7 @@ class StoryChapterBase:
             pygame.quit()
             sys.exit()
 
+
     def run(self) -> str:
         self.running = True
         while self.running:
@@ -43,6 +45,22 @@ class StoryChapterBase:
             self.clock.tick(60)
 
         return "menu" 
+    
+    
+    def run(self) -> str:
+        self.running = True
+        while self.running:
+            for event in pygame.event.get():
+                self.handle_event(event)
+            self.update()
+            self.render()
+            pygame.display.update()
+            self.clock.tick(60)
+
+        debate = DebateGame(self.screen, self.clock)
+        score  = debate.run()
+
+        return "menu"
 
 class StoryChapter1(StoryChapterBase):
     DIALOGUE = [
