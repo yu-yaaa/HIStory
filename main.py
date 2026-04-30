@@ -16,18 +16,18 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        if current_scene == "login":    # handles navigation buttons on login page
-            result = run_login(events)
-            if result == "quit":
-                running = False
-            elif result == "register":
-                current_scene = "register" 
-        elif current_scene == "register":   # handles navigation buttons on register page
-            result = run_register(events)
-            if result == "quit":
-                running = False
-            elif result == "login":
-                current_scene = "login"
+    if current_scene == "login":    # handles navigation buttons on login page
+        result = run_login(events)
+        if result == "quit":
+            running = False
+        elif result == "register":
+            current_scene = "register" 
+    elif current_scene == "register":   # handles navigation buttons on register page
+        result = run_register(events)
+        if result == "quit":
+            running = False
+        elif result == "login":
+            current_scene = "login"
                 
     pygame.display.flip()
     clock.tick(60)
