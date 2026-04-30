@@ -1,7 +1,10 @@
 import pygame
+from conn import get_connection
 from text_field import TextInput
 from button_class import Button
 from login_register_base import * # This import the base for login and resgister page
+
+login_state = {"error_msg": ""} # This is to load error msg 
 
 logo_img = pygame.image.load("Assets/HIStory Logo.png") # load HIStory logo
 logo_img = pygame.transform.scale(logo_img, (screen_width * 0.22, screen_height * 0.2)) # set logo scale
@@ -46,7 +49,7 @@ confirm_button = Button("Confirm",  # create comfirm button to login
 
 btn_w   = int(screen_width  * 0.25)   # button width
 btn_h   = int(screen_height * 0.07)   # button height
-padding = 30                           # gap from screen edge
+padding = 30    # gap from screen edge
 
 sign_up_button = Button( "Sign up for an account here", # create sign up button to direct user to register page
                         screen_width  - btn_w - padding, 
@@ -74,7 +77,19 @@ show_password_button = Button("SHOW",   # create button for users to show what u
                     font_size=int(screen_height * 0.03),
                     font_color=white)
 
-def run_login(events):
+def check_role(username, password):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT user_role FROM user WHERE username = ? AND password = ?', (username, password))
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        return result[0]
+    return None
+
+def run_login(events):  
     screen.blit(bg_img, (0, 0))
     screen.blit(login_box, login_box_rect)
     screen.blit(logo_img, logo_img_rect)
@@ -100,25 +115,46 @@ def run_login(events):
     confirm_button.draw(screen)
     sign_up_button.draw(screen)
     show_password_button.draw(screen)
+    
+    if login_state["error_msg"]:
+        draw_text(login_state["error_msg"],
+                    x = login_box_rect.left + 30,
+                    y = login_box_rect.top  + int(box_height * 0.68),
+                    colour = border_red,
+                    size = int(screen_height * 0.03))
 
     for event in events:
-        username_field.handle_event(event)
+        username_field.handle_event(event) 
         password_field.handle_event(event)
 
         if event.type == pygame.MOUSEBUTTONDOWN:
 
             if exit_rect.collidepoint(event.pos):
-                return "quit"               # 🔑 exit game
-
+                return "quit"
+            
             if sign_up_button.is_clicked(event):
-                return "register"           # 🔑 switch to register
+                return "register"
 
             if confirm_button.is_clicked(event):
-                return "main_menu"          # 🔑 switch to main menu
+                username = username_field.get_text().strip()   # get what user typed
+                password = password_field.get_text().strip()
+                
+                if not username or not password:
+                    login_state["error_msg"] = "*Please enter username and password"
+                else:
+                    role = check_role(username,password)
+                    
+                    if role == "student":
+                        login_state["error_msg"] = "Student"
+
+                    elif role == "teacher":
+                        login_state["error_msg"] = "Teacher"  
+                    else:
+                        login_state["error_msg"] = "user not found"
 
             if show_password_button.is_clicked(event):
                 password_field.toggle_visibility()
                 show_password_button.text = (
                     "HIDE" if not password_field.is_hidden else "SHOW")
                 
-    return None
+    return 

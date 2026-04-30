@@ -51,7 +51,8 @@ class TextInput:
                 self.active = False
                     
             else:
-                self.text += event.unicode
+                if event.unicode.isprintable() and event.unicode != "":
+                    self.text += event.unicode
                 
     def toggle_visibility(self):
         self.is_hidden = not self.is_hidden
@@ -75,3 +76,5 @@ class TextInput:
         text_surface = self.font.render(display_text, True, (40, 40, 40))
         screen.blit(text_surface, (self.rect.x + 10, self.rect.y + 8))
         
+    def get_text(self):
+        return self.text
