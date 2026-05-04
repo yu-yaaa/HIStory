@@ -2,11 +2,10 @@ import pygame
 import sqlite3
 import shutil
 import os
-from conn import get_connection
+from conn import cursor
 from text_field import TextInput    # import text field for user input
 from button_class import Button # Import button class to create button
 from login_register_base import *   # This import the base for login and resgister page
-
 
 login_box, login_box_rect, box_height, box_width = draw_white_box(1.5)  # customise semi-transparent white box height for register page
 
@@ -147,12 +146,9 @@ def validate_user(gmail,username,pw,comfirm_pw,selected_role):
         return True, "Sign in successful!"
     
 def generate_userid():
-    conn = get_connection()
-    cursor = conn.cursor()
     cursor.execute('SELECT user_id FROM USER ORDER BY user_id DESC LIMIT 1')    # gets the last user id
     row = cursor.fetchone()
-    conn.close()
-    
+
     if row: 
         last_num = int(row[0].replace("USR", ""))
         new_num = last_num + 1
@@ -161,11 +157,8 @@ def generate_userid():
         
     
 def generate_user_id():
-    conn = get_connection()
-    cursor = conn.cursor()
     cursor.execute("SELECT user_id FROM user ORDER BY user_id DESC LIMIT 1")
     row = cursor.fetchone()
-    conn.close()
     
     if row:
         last_num = int(row[0].replace("USR", ""))  # extract number e.g. "USR023" -> 23
@@ -177,8 +170,6 @@ def generate_user_id():
 
 def register_user(email, username, pw, role):
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
         new_id = generate_user_id()
         
         default_pic = "Assets/user_profile/default_profile.png"
@@ -191,8 +182,6 @@ def register_user(email, username, pw, role):
             INSERT INTO user (user_id, username, email, password, user_role, profile_picture, classroom_id, otp_code, otp_created_at)
             VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
         """, (new_id, username, email, pw, role, user_pic))
-        conn.commit()
-        conn.close()
         
         return True, new_id
     

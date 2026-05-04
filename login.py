@@ -1,5 +1,5 @@
 import pygame
-from conn import get_connection
+from conn import cursor
 from text_field import TextInput
 from button_class import Button
 from login_register_base import * # This import the base for login and resgister page
@@ -78,12 +78,8 @@ show_password_button = Button("SHOW",   # create button for users to show what u
                     font_color=white)
 
 def check_role(username, password):
-    conn = get_connection()
-    cursor = conn.cursor()
-    
     cursor.execute('SELECT user_role FROM user WHERE username = ? AND password = ?', (username, password))
     result = cursor.fetchone()
-    conn.close()
     
     if result:
         return result[0]
