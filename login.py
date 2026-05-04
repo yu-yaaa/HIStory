@@ -154,6 +154,5 @@ def run_login(events):
 
             if show_password_button.is_clicked(event):
                 password_field.toggle_visibility()
-                show_password_button.text = (
-                    "HIDE" if not password_field.is_hidden else "SHOW")
+                show_password_button.text = ("HIDE" if not password_field.is_hidden else "SHOW")          
     return 
