@@ -1,31 +1,31 @@
 import pygame
-from conn import get_connection
+from conn import cursor
 from text_field import TextInput
 from button_class import Button
 from login_register_base import * # This import the base for login and resgister page
 
 login_state = {"error_msg": ""} # This is to load error msg 
 
-logo_img = pygame.image.load("Assets/HIStory Logo.png") # load HIStory logo
+logo_img = pygame.image.load("Assets/icons/HIStory Logo.png") # load HIStory logo
 logo_img = pygame.transform.scale(logo_img, (screen_width * 0.22, screen_height * 0.2)) # set logo scale
 logo_img_rect = logo_img.get_rect() # get logo coordinate 
 logo_img_rect.center = (screen_width // 2, screen_height // 4.7) # set logo center and above login box (default)
 
-exit_img = pygame.image.load("Assets/Exit Button.png")  # load exit icon 
+exit_img = pygame.image.load("Assets/icons/Exit Button.png")  # load exit icon 
 exit_img = pygame.transform.scale(exit_img, (screen_height * 0.1, screen_height * 0.1))
 exit_rect = exit_img.get_rect()
 exit_rect.bottomleft = (30, screen_height - 30)
 
-bg_img = pygame.image.load("Assets/Log in, Sign up page Background.png")    # load background for login and register
+bg_img = pygame.image.load("Assets/background/Log in, Sign up page Background.png")    # load background for login and register
 bg_img = pygame.transform.scale(bg_img, (screen_width, screen_height))
     
 login_box, login_box_rect, box_height, box_width = draw_white_box() # create white box
 
 username_field = TextInput(login_box_rect.left + 30, # create username field for login
                            login_box_rect.top + int(box_height * 0.3), 
-                           int(box_width * 0.9) , 
+                           int(box_width * 0.9), 
                            60, 
-                           font_size = int(screen_height * 0.035) )
+                           font_size = int(screen_height * 0.035))
 
 password_field = TextInput(login_box_rect.left + 30,  # create password field for login
                            login_box_rect.top + int(box_height * 0.54), 
@@ -78,12 +78,8 @@ show_password_button = Button("SHOW",   # create button for users to show what u
                     font_color=white)
 
 def check_role(username, password):
-    conn = get_connection()
-    cursor = conn.cursor()
-    
     cursor.execute('SELECT user_role FROM user WHERE username = ? AND password = ?', (username, password))
     result = cursor.fetchone()
-    conn.close()
     
     if result:
         return result[0]
@@ -154,7 +150,5 @@ def run_login(events):
 
             if show_password_button.is_clicked(event):
                 password_field.toggle_visibility()
-                show_password_button.text = (
-                    "HIDE" if not password_field.is_hidden else "SHOW")
-                
+                show_password_button.text = ("HIDE" if not password_field.is_hidden else "SHOW")          
     return 

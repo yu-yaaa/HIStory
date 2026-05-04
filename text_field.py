@@ -60,21 +60,38 @@ class TextInput:
     def draw(self, screen):
         colour = self.colour_active if self.active else self.colour_inactive
 
-        # this is to draw the box and fill colour
+        # Draw the box and fill colour
         pygame.draw.rect(screen, colour, self.rect, border_radius=self.border_radius)
 
-        # this is to draw the border
+        # Draw the border
         pygame.draw.rect(screen, self.border_colour, self.rect, width=self.border_width, border_radius=self.border_radius)
 
-        # to hide password
+        # To hide password
         if self.is_password and self.is_hidden:
             display_text = "*" * len(self.text)
         else:
             display_text = self.text
-            
-        # draw text for user input
+
+        # Draw text for user input
         text_surface = self.font.render(display_text, True, (40, 40, 40))
-        screen.blit(text_surface, (self.rect.x + 10, self.rect.y + 8))
+
+        # ✅ Create an inner rect — slightly smaller than the box for padding
+        inner_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 8,
+                                self.rect.width - 20,       # -20 for left + right padding
+                                self.rect.height - 10)      # -10 for top + bottom padding
+
+        # ✅ Only show the RIGHTMOST part of text when it overflows
+        text_width = text_surface.get_width()
+        if text_width > inner_rect.width:
+            # Crop from the right side — shows most recently typed characters
+            overflow = text_width - inner_rect.width
+            crop_rect = pygame.Rect(overflow, 0, inner_rect.width, text_surface.get_height())
+            text_surface = text_surface.subsurface(crop_rect)
+
+        # ✅ Set clip so nothing draws outside the box
+        screen.set_clip(inner_rect)
+        screen.blit(text_surface, (inner_rect.x, inner_rect.y))
+        screen.set_clip(None)       # ✅ IMPORTANT — remove clip after drawing or whole screen gets clipped!
         
     def get_text(self):
         return self.text
