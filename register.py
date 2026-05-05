@@ -145,17 +145,6 @@ def validate_user(gmail,username,pw,comfirm_pw,selected_role):
     else:
         return True, "Sign in successful!"
     
-def generate_userid():
-    cursor.execute('SELECT user_id FROM USER ORDER BY user_id DESC LIMIT 1')    # gets the last user id
-    row = cursor.fetchone()
-
-    if row: 
-        last_num = int(row[0].replace("USR", ""))
-        new_num = last_num + 1
-    else:
-        new_num = 1
-        
-    
 def generate_user_id():
     cursor.execute("SELECT user_id FROM user ORDER BY user_id DESC LIMIT 1")
     row = cursor.fetchone()
@@ -166,7 +155,7 @@ def generate_user_id():
     else:
         new_num = 1  # first user ever
     
-    return f"USR{new_num:03d}"  # pads to 3 digits e.g. USR024
+    return f"USR{new_num:03d}"
 
 def register_user(email, username, pw, role):
     try:
