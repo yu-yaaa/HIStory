@@ -21,7 +21,7 @@ while running:
         if result == "quit":
             running = False
         elif result == "register":
-            current_scene = "register" 
+            current_scene = "register"
     elif current_scene == "register":   # handles navigation buttons on register page
         result = run_register(events)
         if result == "quit":

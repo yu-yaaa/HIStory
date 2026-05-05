@@ -2,7 +2,6 @@ import pygame
 from text_field import TextInput
 from button_class import Button
 
-
 # color code
 black         = (40, 40, 40)
 white         = (255, 255, 255)
@@ -18,8 +17,7 @@ screen_width = screen.get_width()
 screen_height = screen.get_height() # get width and height for responsivebility 
 font_size = int(screen_height * 0.05) # set default font size
 clock = pygame.time.Clock() 
-running = True
-
+running = True              
 
 def draw_white_box(height_multiplier=1.0):  # draw semi white box and height_multiplier to change the height
     box_width  = int(screen_width  * 0.35)
