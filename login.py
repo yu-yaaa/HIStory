@@ -1,4 +1,5 @@
 import pygame
+import session
 from conn import cursor
 from text_field import TextInput
 from button_class import Button
@@ -142,6 +143,13 @@ def run_login(events):
                     
                     if role == "student":
                         login_state["error_msg"] = "Student"
+                        cursor.execute('SELECT user_id FROM user WHERE username = ?', (username,))
+                        user_id = cursor.fetchone()
+                        
+                        if user_id:    
+                            session.current_user["username"] = username
+                            session.current_user["user_id"] = user_id[0]
+                            return "profile" 
 
                     elif role == "teacher":
                         login_state["error_msg"] = "Teacher"  
