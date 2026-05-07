@@ -2,7 +2,7 @@ import pygame
 import os
 from sys import exit
 
-CURRENT_USER_ID = "USR007"   # TODO: replace with real auth value
+CURRENT_USER_ID = "USR007"  #replace with  studentid
 
 from database import fetch_all_chapters, fetch_character
 from studentstoryline import get_chapter_class
@@ -14,8 +14,6 @@ screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSC
 pygame.display.set_caption("HIStory")
 clock  = pygame.time.Clock()
 
-# ── Resolve the project root so all asset paths work regardless of where
-#    the script is launched from (e.g. python HIStory/studentmainmenu.py)
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 def asset_path(relative: str) -> str:
@@ -26,7 +24,7 @@ def asset_path(relative: str) -> str:
     if os.path.isfile(relative):
         return relative
     full = os.path.join(PROJECT_ROOT, relative)
-    return full   # returned even if not found — pygame will raise a clear error
+    return full  
 
 logo = pygame.image.load(asset_path("Assets/icons/HIStory Logo.png")).convert_alpha()
 bg   = pygame.image.load(asset_path("Assets/background/Main Menu background.png")).convert()
@@ -46,7 +44,6 @@ CHAPTER_CHARACTER_MAP = {
     "CH001": "CR001",
 }
 
-# ── Load all chapters from DB ─────────────────────────────────────────────────
 _db_chapters = fetch_all_chapters()
 
 
@@ -67,10 +64,8 @@ def _build_carousel_entries():
             char_row  = fetch_character(CHAPTER_CHARACTER_MAP[ch_id])
             char_name = char_row["name"] if char_row else chapter["title"]
             if char_row:
-                # Build path using the character_id as the filename,
-                # stored under Assets/background/ (e.g. Assets/background/CR001.png)
                 char_id = char_row["character_id"]
-                asset = f"Assets/background/characters/{char_id}.png"
+                asset = f"Assets/characters/{char_id}.png"
             else:
                 asset = None
         else:
@@ -103,7 +98,6 @@ if not CHARACTERS:
 
 current_character = 0
 
-# ── Button layout ─────────────────────────────────────────────────────────────
 button_labels = ["Play", "Player Profile", "Progress Track", "Exit"]
 button_width  = int(screen_width  * 0.24)
 button_height = int(screen_height * 0.09)
@@ -145,7 +139,6 @@ BTN_COLORS = {
     },
 }
 
-# ── Panel / character geometry ────────────────────────────────────────────────
 panel_x    = int(screen_width  * 0.50)
 panel_w    = int(screen_width  * 0.48)
 panel_y    = int(screen_height * 0.05)
@@ -170,8 +163,6 @@ label_x   = char_x + (char_w - label_w) // 2
 name_rect  = pygame.Rect(label_x, pedestal_y + int(screen_height * 0.04), label_w, label_h)
 story_rect = pygame.Rect(label_x, name_rect.bottom + int(screen_height * 0.015), label_w, label_h)
 
-
-# ── Placeholder builder ───────────────────────────────────────────────────────
 def make_placeholder() -> pygame.Surface:
     surf = pygame.Surface((char_w, char_h), pygame.SRCALPHA)
     surf.fill((20, 20, 60, 180))
@@ -189,8 +180,6 @@ def make_placeholder() -> pygame.Surface:
     surf.blit(tint, (0, 0))
     return surf
 
-
-# ── Load character images ─────────────────────────────────────────────────────
 char_images = []
 for entry in CHARACTERS:
     loaded = False
@@ -216,9 +205,6 @@ for entry in CHARACTERS:
     if not loaded:
         print(f"[carousel] using placeholder for entry: {entry.get('name')}")
         char_images.append(make_placeholder())
-
-
-# ── Drawing helpers ───────────────────────────────────────────────────────────
 
 def draw_buttons(mouse_pos):
     locked = CHARACTERS[current_character].get("locked", False)
@@ -306,8 +292,6 @@ def draw_carousel(mouse_pos):
         pygame.draw.rect(screen, (255, 204, 0), char_rect.inflate(10, 10), 3, border_radius=8)
 
 
-# ── Story launcher ────────────────────────────────────────────────────────────
-
 def launch_story():
     entry = CHARACTERS[current_character]
 
@@ -348,8 +332,6 @@ def _show_coming_soon():
         pygame.display.update()
         clock.tick(60)
 
-
-# ── Main loop ─────────────────────────────────────────────────────────────────
 running = True
 
 while running:

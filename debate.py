@@ -3,25 +3,15 @@ import sys
 import math
 import random
 
-# ── Database import — rewards only (no image queries) ─────────────────────────
 from database import fetch_rewards_by_type
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  DATA CLASSES
-# ─────────────────────────────────────────────────────────────────────────────
-
 class AnswerOption:
-    """Stores a single selectable answer and its score contribution."""
-
     def __init__(self, text: str, score: int):
         self.text  = text
         self.score = score
 
 
 class DebateRound:
-    """Represents one debate exchange."""
-
     def __init__(
         self,
         speaker: str,
@@ -34,14 +24,7 @@ class DebateRound:
         self.answers      = answers or []
         self.is_narrative = is_narrative
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  POWER-UP WRAPPER
-# ─────────────────────────────────────────────────────────────────────────────
-
 class PowerUp:
-    """Runtime wrapper around a `reward` DB row."""
-
     def __init__(self, db_row):
         self.reward_id   = db_row["reward_id"]
         self.name        = db_row["reward_name"]
@@ -58,11 +41,6 @@ class PowerUp:
             self.icon = pygame.transform.smoothscale(raw, (size, size))
         except Exception:
             self.icon = None
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  DEBATE CONTENT
-# ─────────────────────────────────────────────────────────────────────────────
 
 DEBATE_ROUNDS: "list[DebateRound]" = [
 
@@ -240,11 +218,6 @@ DEBATE_ROUNDS: "list[DebateRound]" = [
     ),
 ]
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  COLOUR PALETTE
-# ─────────────────────────────────────────────────────────────────────────────
-
 CLR_BG         = (10,  18,  50)
 CLR_GOLD       = (255, 204,  0)
 CLR_GOLD_DIM   = (160, 110,  5)
@@ -265,14 +238,7 @@ ANS_COLORS = [
 
 POWERUP_STREAK_THRESHOLD = 3
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  MAIN GAME CLASS
-# ─────────────────────────────────────────────────────────────────────────────
-
 class DebateGame:
-    """Chapter 2 – The Road to Merdeka Debate."""
-
     _NOTIFY_DURATION = 180
 
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
@@ -302,10 +268,7 @@ class DebateGame:
 
         self._load_round(0)
 
-    # ── Power-up system ───────────────────────────────────────────────────────
-
     def _init_powerup_system(self):
-        """Load debate-type rewards from the DB and set up streak state."""
         self._correct_streak       = 0
         self._inventory: list[PowerUp] = []
         self._powerup_notify_text  = None
@@ -319,7 +282,6 @@ class DebateGame:
             self._available_powerups.append(pu)
 
     def _check_streak_reward(self, score: int):
-        """Update streak counter; award a random power-up at threshold."""
         if score > 0:
             self._correct_streak += 1
         else:
@@ -333,9 +295,6 @@ class DebateGame:
                 self._inventory.append(awarded)
                 self._powerup_notify_text  = f"⚡ Power-up earned: {awarded.name}!"
                 self._powerup_notify_timer = self._NOTIFY_DURATION
-                # TODO: Persist to player_reward table via database.grant_player_reward()
-
-    # ── Initialisation helpers ────────────────────────────────────────────────
 
     def _init_fonts(self):
         self.font_title   = pygame.font.SysFont("Georgia", int(self.H * 0.038), bold=True)
@@ -347,35 +306,21 @@ class DebateGame:
         self.font_hud     = pygame.font.SysFont("Arial",   int(self.H * 0.019), bold=True)
 
     def _load_assets(self):
-        # ── Background ────────────────────────────────────────────────────────
-        # Direct file load — path matches the bg_path stored in chapter_bg table
-        # for chapter_id = 'CH002', first background = Assets/BG003.png
         try:
-            raw     = pygame.image.load("Assets/BG003.png").convert()
+            raw     = pygame.image.load("Assets/background/debate.png").convert()
             self.bg = pygame.transform.scale(raw, (self.W, self.H))
         except Exception:
             self.bg = None
 
-        # ── Tunku Abdul Rahman sprite ─────────────────────────────────────────
-        # Direct file load — path matches character_pic in character table for CR001
         try:
-            raw            = pygame.image.load("Assets/CR001.png").convert_alpha()
-            h              = int(self.H * 0.50)
-            w              = int(h * 0.55)
+            raw = pygame.image.load("Assets/characters/CR001.png").convert_alpha()
+            h = int(self.H * 0.50)
+            w = int(h * 0.55)
             self.char_left = pygame.transform.smoothscale(raw, (w, h))
         except Exception:
             self.char_left = self._make_char_placeholder("Tunku\nAbdul\nRahman", (30, 60, 140))
 
-        # ── Donald MacGillivray sprite ────────────────────────────────────────
-        # Direct file load — path matches character_pic in character table for CR004
-        try:
-            raw             = pygame.image.load("Assets/CR004.png").convert_alpha()
-            h               = int(self.H * 0.50)
-            w               = int(h * 0.55)
-            img             = pygame.transform.smoothscale(raw, (w, h))
-            self.char_right = pygame.transform.flip(img, True, False)
-        except Exception:
-            self.char_right = self._make_char_placeholder("Donald\nMac\nGillivray", (110, 25, 25))
+        self.char_right = self._make_char_placeholder("Donald\nMac\nGillivray", (110, 25, 25))
 
     def _make_char_placeholder(self, name: str, color: tuple) -> pygame.Surface:
         w = int(self.H * 0.50 * 0.55)
@@ -436,8 +381,6 @@ class DebateGame:
         self.inv_x = int(self.W * 0.02)
         self.inv_y = int(self.H * 0.88)
 
-    # ── Round management ──────────────────────────────────────────────────────
-
     def _load_round(self, index: int):
         if index >= len(self.rounds):
             self.running = False
@@ -456,8 +399,6 @@ class DebateGame:
             self.running = False
         else:
             self._load_round(self.round_index)
-
-    # ── Layout helpers ────────────────────────────────────────────────────────
 
     def _answer_rects(self, answers):
         cols    = 2
@@ -508,8 +449,6 @@ class DebateGame:
         copy.set_alpha(alpha)
         return copy
 
-    # ── Main loop ─────────────────────────────────────────────────────────────
-
     def run(self) -> int:
         self.running = True
         while self.running:
@@ -525,8 +464,6 @@ class DebateGame:
             pygame.display.update()
 
         return self.total_score
-
-    # ── Event handling ────────────────────────────────────────────────────────
 
     def _handle_event(self, event: pygame.event.Event):
         if event.type == pygame.QUIT:
@@ -575,8 +512,6 @@ class DebateGame:
                         self._check_streak_reward(ans.score)
                         break
 
-    # ── Update ────────────────────────────────────────────────────────────────
-
     def _update(self):
         if not self._tw_done:
             self._tw_shown = min(self._tw_shown + self._tw_speed, len(self._tw_full_text))
@@ -592,8 +527,6 @@ class DebateGame:
             self._powerup_notify_timer -= 1
             if self._powerup_notify_timer == 0:
                 self._powerup_notify_text = None
-
-    # ── Rendering ─────────────────────────────────────────────────────────────
 
     def _render(self):
         self._draw_bg()
@@ -901,11 +834,6 @@ class DebateGame:
             hint,
             (self.W // 2 - hint.get_width() // 2, self.H - int(self.H * 0.024)),
         )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  STANDALONE TEST ENTRY-POINT
-# ─────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
     pygame.init()
