@@ -13,15 +13,15 @@ class Box:
         self.y = y
         self.width = w
         self.height = h
-        self.rect = pygame.Rect(x,y,w,h)
-        self.colour = colour,
-        self.alpha = alpha,
+        self.Rect = pygame.Rect(x,y,w,h)
+        self.colour = colour
+        self.alpha = alpha
         self.border = border_r
         
     def draw_box(self,screen):
         surface = pygame.Surface ((self.width, self.height), pygame.SRCALPHA)
         pygame.draw.rect(surface,
                          (*self.colour, self.alpha),
-                         pygame.rect(0,0,self.width,self.height),
+                         pygame.Rect(0,0,self.width,self.height),
                          border_radius=self.border)
         screen.blit(surface, (self.x, self.y))
