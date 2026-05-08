@@ -4,6 +4,7 @@ from conn import cursor
 from text_field import TextInput
 from button_class import Button
 from login_register_base import * # This import the base for login and resgister page
+from queries import check_role
 
 login_state = {"error_msg": ""} # This is to load error msg 
 
@@ -77,14 +78,6 @@ show_password_button = Button("SHOW",   # create button for users to show what u
                     0,
                     font_size=int(screen_height * 0.03),
                     font_color=white)
-
-def check_role(username, password):
-    cursor.execute('SELECT user_role FROM user WHERE username = ? AND password = ?', (username, password))
-    result = cursor.fetchone()
-    
-    if result:
-        return result[0]
-    return None
 
 def run_login(events):  
     screen.blit(bg_img, (0, 0))

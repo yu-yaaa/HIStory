@@ -1,6 +1,7 @@
 import pygame
 from login import run_login 
 from register import run_register
+from student_profile import run_student_profile
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN) #set screen to be fullscreen
@@ -22,12 +23,16 @@ while running:
             running = False
         elif result == "register":
             current_scene = "register"
+        elif result == "profile":  #temp
+            current_scene = "profile"
     elif current_scene == "register":   # handles navigation buttons on register page
         result = run_register(events)
         if result == "quit":
             running = False
         elif result == "login":
             current_scene = "login"
+    elif current_scene == "profile":    #temp
+        result = run_student_profile(events)
                 
     pygame.display.flip()
     clock.tick(60)
