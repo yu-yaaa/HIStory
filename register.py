@@ -1,7 +1,5 @@
 import pygame
-import sqlite3
-import shutil
-import os
+from queries import register_user
 from conn import cursor
 from text_field import TextInput    # import text field for user input
 from button_class import Button # Import button class to create button
@@ -156,30 +154,6 @@ def generate_user_id():
         new_num = 1  # first user ever
     
     return f"USR{new_num:03d}"
-
-def register_user(email, username, pw, role):
-    try:
-        new_id = generate_user_id()
-        
-        default_pic = "Assets/user_profile/default_profile.png"
-        user_pic = f"Assets/user_profile/{new_id}.png"
-        
-        if not os.path.exists(user_pic):
-            shutil.copy(default_pic, user_pic)
-        
-        cursor.execute("""
-            INSERT INTO user (user_id, username, email, password, user_role, profile_picture, classroom_id, otp_code, otp_created_at)
-            VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
-        """, (new_id, username, email, pw, role, user_pic))
-        
-        return True, new_id
-    
-    except sqlite3.IntegrityError as e:
-        print(f"IntegrityError: {e}")   # this will tell you exactly which column is conflicting
-        return False, "Email or username already exists."
-    except Exception as e:
-        print(f"Error: {e}")
-        return False, f"Database error: {str(e)}"
     
 def run_register(events):    # function to draw everything needed for register page
     screen.blit(bg_img, (0, 0))
