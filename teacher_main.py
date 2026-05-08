@@ -1,3 +1,4 @@
+from asyncio import events
 import pygame
 from teacher_dashboard import draw_dashboard
 
@@ -15,14 +16,19 @@ while running:
     mouse_pos = pygame.mouse.get_pos()
     mouse_click = False
 
-    for event in pygame.event.get():
+    events = pygame.event.get()
+
+    for event in events:
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             mouse_click = True
 
     if current_page == "dashboard":
-        buttons = draw_dashboard(screen)
+        action = draw_dashboard(screen, events)
+
+        if action == "exit":
+            running = False
 
         #if mouse_click:
             #if buttons["manage_students"].collidepoint(mouse_pos):
