@@ -3,11 +3,12 @@ from bg import draw_background
 from datetime import date
 from button_class import *
 import textwrap
-from tcher_database import get_username
+import session
+
+username = session.current_user["username"]
 
 today = date.today()
 day_name = date.today().strftime("%A")
-username = get_username("USR001")
 low_att = "1"
 improve = "2"
 
@@ -90,7 +91,7 @@ def draw_dashboard(screen,events):
               anchor="topleft")  
     
     #greeting
-    draw_text(screen, "Welcome back, "+teacher_name+"!",
+    draw_text(screen, "Welcome back, "+username+"!",
               int(screen.get_width() * 0.21),
               int(screen.get_height() * 0.25),
               (255,255,255),

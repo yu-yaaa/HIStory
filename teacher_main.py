@@ -1,7 +1,10 @@
 from asyncio import events
 import pygame
 from teacher_dashboard import draw_dashboard
-from tcher_database import get_username
+import session
+
+if session.current_user["user_id"] is None:
+    current_page = "login"  # guard against accessing dashboard without logging in
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
