@@ -97,7 +97,7 @@ class TextInput:
         )
 
         # Vertically center the text inside the box
-        text_y = self.rect.y + (self.rect.height - text_surface.get_height()) // 
+        text_y = self.rect.y + (self.rect.height - text_surface.get_height()) // 2
 
         # Only show the RIGHTMOST part of text when it overflows
         text_width = text_surface.get_width()
