@@ -18,7 +18,7 @@ class Arrow_Button:
         self.colour = colour
         self.hover_colour = hover_colour
         self.border_r = border_r
-        self.border_w - border_w
+        self.border_w = border_w
         self.border_colour = border_colour
         self.rect = pygame.Rect(x, y, size, size)
         
@@ -32,14 +32,14 @@ class Arrow_Button:
         # this is to set the colour of button
         mouse_pos = pygame.mouse.get_pos()
         if self.rect.collidepoint(mouse_pos):
-            current_color = self.hover_color
+            current_color = self.hover_colour
         else:
-            current_color = self.color
+            current_color = self.colour
          
         pygame.draw.rect(screen, current_color, self.rect, border_radius = self.border_r)   
         
         if self.border_w > 0:
-            pygame.draw.rect(screen, self.border_color, self.rect, width=self.border_w, border_radius=self.border_r)
+            pygame.draw.rect(screen, self.border_colour, self.rect, width=self.border_w, border_radius=self.border_r)
         
         cx = self.rect.centerx
         cy = self.rect.centery

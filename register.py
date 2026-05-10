@@ -143,17 +143,6 @@ def validate_user(gmail,username,pw,comfirm_pw,selected_role):
     else:
         return True, "Sign in successful!"
     
-def generate_user_id():
-    cursor.execute("SELECT user_id FROM user ORDER BY user_id DESC LIMIT 1")
-    row = cursor.fetchone()
-    
-    if row:
-        last_num = int(row[0].replace("USR", ""))  # extract number e.g. "USR023" -> 23
-        new_num = last_num + 1
-    else:
-        new_num = 1  # first user ever
-    
-    return f"USR{new_num:03d}"
     
 def run_register(events):    # function to draw everything needed for register page
     screen.blit(bg_img, (0, 0))

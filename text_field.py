@@ -50,6 +50,16 @@ class TextInput:
             elif event.key == pygame.K_KP_ENTER: # Stop typing(keypad enter)
                 self.active = False
                     
+            elif event.key == pygame.K_v and (event.mod & pygame.KMOD_CTRL):
+                if pygame.scrap.get_init():
+                    clipboard_data = pygame.scrap.get(pygame.SCRAP_TEXT)
+                    if clipboard_data:
+                        # pygame.scrap returns bytes; decode and strip null terminator
+                        clipboard_text = clipboard_data.decode("utf-8", errors="ignore").rstrip("\x00")
+                        # Filter to printable characters only
+                        clipboard_text = "".join(c for c in clipboard_text if c.isprintable())
+                        self.text += clipboard_text
+                        
             else:
                 if event.unicode.isprintable() and event.unicode != "":
                     self.text += event.unicode
@@ -75,12 +85,21 @@ class TextInput:
         # Draw text for user input
         text_surface = self.font.render(display_text, True, (40, 40, 40))
 
-        # ✅ Create an inner rect — slightly smaller than the box for padding
-        inner_rect = pygame.Rect(self.rect.x + 10, self.rect.y + 8,
-                                self.rect.width - 20,       # -20 for left + right padding
-                                self.rect.height - 10)      # -10 for top + bottom padding
+        # Create an inner rect — slightly smaller than the box for padding
+        padding_x = 10
 
-        # ✅ Only show the RIGHTMOST part of text when it overflows
+        # Inner rect with horizontal padding, vertically centered
+        inner_rect = pygame.Rect(
+            self.rect.x + padding_x,
+            self.rect.y,
+            self.rect.width - padding_x * 2,
+            self.rect.height
+        )
+
+        # Vertically center the text inside the box
+        text_y = self.rect.y + (self.rect.height - text_surface.get_height()) // 2
+
+        # Only show the RIGHTMOST part of text when it overflows
         text_width = text_surface.get_width()
         if text_width > inner_rect.width:
             # Crop from the right side — shows most recently typed characters
@@ -88,10 +107,10 @@ class TextInput:
             crop_rect = pygame.Rect(overflow, 0, inner_rect.width, text_surface.get_height())
             text_surface = text_surface.subsurface(crop_rect)
 
-        # ✅ Set clip so nothing draws outside the box
+        #  Set clip so nothing draws outside the box
         screen.set_clip(inner_rect)
         screen.blit(text_surface, (inner_rect.x, inner_rect.y))
-        screen.set_clip(None)       # ✅ IMPORTANT — remove clip after drawing or whole screen gets clipped!
+        screen.set_clip(None) 
         
     def get_text(self):
         return self.text
