@@ -1,6 +1,7 @@
 from asyncio import events
 import pygame
 from teacher_dashboard import draw_dashboard
+from tcher_database import get_username
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)

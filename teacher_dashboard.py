@@ -3,10 +3,11 @@ from bg import draw_background
 from datetime import date
 from button_class import *
 import textwrap
+from tcher_database import get_username
 
 today = date.today()
 day_name = date.today().strftime("%A")
-teacher_name = "NAME"
+username = get_username("USR001")
 low_att = "1"
 improve = "2"
 
