@@ -4,12 +4,13 @@ from register import run_register
 from student_profile import run_student_profile
 
 pygame.init()
+pygame.scrap.init() # this is to allow the user to paste text
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN) #set screen to be fullscreen
 clock  = pygame.time.Clock()
 
 current_scene = "login" # User is automatically send to the login page when the game starts
 running = True
-
+show_join_popup = False 
 while running:
     events = pygame.event.get()
 
@@ -32,7 +33,7 @@ while running:
         elif result == "login":
             current_scene = "login"
     elif current_scene == "profile":    #temp
-        result = run_student_profile(events)
+        current_scene, show_join_popup = run_student_profile(events, show_join_popup)
                 
     pygame.display.flip()
     clock.tick(60)
