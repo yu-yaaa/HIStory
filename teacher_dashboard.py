@@ -4,7 +4,6 @@ from datetime import date
 from button_class import *
 import textwrap
 import session
-import session
 from tcher_database import get_username
 from create_classroom import run_create_classroom_overlay
 
@@ -200,7 +199,7 @@ def draw_dashboard(screen,events):
             show_create_overlay = True
 
     if show_create_overlay:
-        result, classroom_name = run_create_classroom_overlay(screen, events)
+        result, classroom_name, class_code, class_color = run_create_classroom_overlay(screen, events)
         if result == "confirm":
             # save classroom_name to database here
             show_create_overlay = False
