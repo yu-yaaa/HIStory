@@ -3,18 +3,21 @@ import sqlite3
 def get_connection():
     return sqlite3.connect("HIStory.db")
 
-def login_user(username, password):
+def get_username(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT user_id
+        SELECT username
         FROM user
-        WHERE username = ? AND password = ?
-    """, (username, password))
+        WHERE user_id = ?
+    """, (user_id,))
 
     result = cursor.fetchone()
 
     conn.close()
 
-    return result
+    if result:
+        return result[0]
+
+    return None

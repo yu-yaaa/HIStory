@@ -4,8 +4,12 @@ from datetime import date
 from button_class import *
 import textwrap
 import session
+import session
+from tcher_database import get_username
 
-username = session.current_user["username"]
+user_id = session.current_user["user_id"]
+
+username = get_username(user_id)
 
 today = date.today()
 day_name = date.today().strftime("%A")
@@ -66,7 +70,7 @@ def draw_dashboard(screen,events):
     laptop_rect = laptop.get_rect(center=(int(screen.get_width() * 0.15), int(screen.get_height() * 0.72)))
     screen.blit(laptop, laptop_rect)  
 
-    logo = pygame.image.load("Assets/HIStory Logo.png").convert_alpha()
+    logo = pygame.image.load("Assets/icons/HIStory Logo.png").convert_alpha()
     logo = pygame.transform.scale(logo, (int(screen.get_width() *0.2), int(screen.get_height() * 0.2)))
     logo_rect = logo.get_rect(center=(int(screen.get_width() * 0.15), int(screen.get_height() * 0.7)))
     screen.blit(logo,logo_rect)
@@ -91,7 +95,7 @@ def draw_dashboard(screen,events):
               anchor="topleft")  
     
     #greeting
-    draw_text(screen, "Welcome back, "+username+"!",
+    draw_text(screen, f"Welcome back, {username}!",
               int(screen.get_width() * 0.21),
               int(screen.get_height() * 0.25),
               (255,255,255),
