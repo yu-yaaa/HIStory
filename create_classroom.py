@@ -28,6 +28,15 @@ error_msg  = ""
 class_code = None
 copied_timer = 0
 
+def reset_overlay():
+    global class_code, error_msg, selected_color, copied_timer
+    class_code = generate_class_code()  # new code each time
+    error_msg = ""
+    selected_color = 0
+    copied_timer = 0
+    if classroom_name_field:
+        classroom_name_field.text = ""  # clear the name field
+
 def init_overlay(screen):
     global box_width, box_height, box_x, box_y
     global screen_width, screen_height
@@ -208,20 +217,19 @@ def run_create_classroom_overlay(screen, events):
                 pyperclip.copy(class_code)
                 copied_timer = 120
 
+            # X button
+            if x_btn.is_clicked(event):
+                reset_overlay()
+                return "cancel", None, None, None
+
             # confirm button
             if confirm_btn.is_clicked(event):
                 name = classroom_name_field.get_text().strip()
                 if 3 <= len(name) <= 50:
-                    error_msg = ""
+                    reset_overlay()
                     return "confirm", name, class_code, colors[selected_color]
                 else:
                     error_msg = "*Must have 3-50 characters"
-
-            # X button
-            if x_btn.is_clicked(event):
-                error_msg = ""
-                classroom_name_field.text = ""
-                return "cancel", None, None, None
             
             
             # color circle clicks

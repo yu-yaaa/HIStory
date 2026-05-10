@@ -6,6 +6,8 @@ import textwrap
 import session
 from tcher_database import get_username
 from create_classroom import run_create_classroom_overlay
+from tcher_database import create_classroom
+
 
 user_id = session.current_user["user_id"]
 
@@ -201,7 +203,12 @@ def draw_dashboard(screen,events):
     if show_create_overlay:
         result, classroom_name, class_code, class_color = run_create_classroom_overlay(screen, events)
         if result == "confirm":
-            # save classroom_name to database here
+            create_classroom(
+            session.current_user["user_id"],
+            classroom_name,
+            class_code,
+            class_color  # this is the tuple e.g. (255, 140, 0)
+                )
             show_create_overlay = False
         elif result == "cancel":
             show_create_overlay = False
