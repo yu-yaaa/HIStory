@@ -6,10 +6,13 @@ import textwrap
 import session
 import session
 from tcher_database import get_username
+from create_classroom import run_create_classroom_overlay
 
 user_id = session.current_user["user_id"]
 
 username = get_username(user_id)
+
+show_create_overlay = False
 
 today = date.today()
 day_name = date.today().strftime("%A")
@@ -52,6 +55,7 @@ def draw_text(screen, text, x, y, colour, size, anchor="topleft"):
     screen.blit(surface, rect)
 
 def draw_dashboard(screen,events):
+    global show_create_overlay
     draw_background(screen)
     #draw the background first
 
@@ -124,6 +128,7 @@ def draw_dashboard(screen,events):
                                   (255,255,255),
                                   tooltip="Create a new classroom")
     create_classroom_btn.draw(screen)
+    
 
     my_classroom_btn = Button("My Classrooms",
                             int(screen.get_width() * 0.6),
@@ -189,3 +194,15 @@ def draw_dashboard(screen,events):
         #exit button click
         if exit_btn.is_clicked(event):
             return "exit"
+        
+        #create classroom button clicked
+        if create_classroom_btn.is_clicked(event):
+            show_create_overlay = True
+
+    if show_create_overlay:
+        result, classroom_name = run_create_classroom_overlay(screen, events)
+        if result == "confirm":
+            # save classroom_name to database here
+            show_create_overlay = False
+        elif result == "cancel":
+            show_create_overlay = False
