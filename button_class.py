@@ -14,7 +14,8 @@ class Button:
                  border_r,
                  border_w,
                  font_size,
-                 font_color):
+                 font_color,
+                 tooltip=None):
         self.text = text
         self.rect = pygame.Rect(x,y,w,h)
         self.color = color
@@ -24,6 +25,7 @@ class Button:
         self.border_w = border_w
         self.font = pygame.font.Font("Assets/Jersey10-Regular.ttf", font_size)
         self.font_color = font_color
+        self.tooltip = tooltip ; import tooltip 
         
         
     def is_clicked(self, event):
@@ -49,3 +51,11 @@ class Button:
         text_rect        = text_surface.get_rect()
         text_rect.center = self.rect.center
         screen.blit(text_surface, text_rect)
+
+        # if choose to add tooltip
+        if self.tooltip and self.rect.collidepoint(mouse_pos):
+            try:
+                from tooltip import draw_tooltip
+                draw_tooltip(screen, self.tooltip, (self.rect.x, self.rect.y + self.rect.height))
+            except:
+                pass
