@@ -43,7 +43,7 @@ while running:
     elif current_scene == "student_menu":
         result  = run_student_mainmenu(events)
         if result == "profile":
-            current_scene == "profile"
+            current_scene = "profile"
         #elif result == "progress":
                 
     elif current_scene == "profile":

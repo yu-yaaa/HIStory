@@ -1,21 +1,21 @@
 import pygame
 import os
 from sys import exit
-
 import session
 CURRENT_USER_ID = session.current_user["user_id"]
 
 from database import fetch_all_chapters, fetch_character
 from studentstoryline import get_chapter_class
 
-pygame.init()
-
-info   = pygame.display.Info()
-screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN | pygame.NOFRAME)
-pygame.display.set_caption("HIStory")
-clock  = pygame.time.Clock()
-
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+from login_register_base import *
+
+# REPLACE the screen/size variables with:
+screen        = pygame.display.get_surface()
+screen_width  = screen.get_width()
+screen_height = screen.get_height()
+clock         = pygame.time.Clock()
 
 def asset_path(relative: str) -> str:
     """Return an absolute path for a relative asset path stored in the DB
@@ -29,8 +29,6 @@ def asset_path(relative: str) -> str:
 
 logo = pygame.image.load(asset_path("Assets/icons/HIStory Logo.png")).convert_alpha()
 bg   = pygame.image.load(asset_path("Assets/background/Main Menu background.png")).convert()
-
-screen_width, screen_height = screen.get_size()
 
 font       = pygame.font.SysFont("Arial", int(screen_height * 0.038))
 name_font  = pygame.font.SysFont("Arial", int(screen_height * 0.022), bold=True)
@@ -50,12 +48,21 @@ _db_chapters = fetch_all_chapters()
 
 def _build_carousel_entries():
     entries = []
-    carousel_index = 0
 
-    for chapter in _db_chapters:
-        ch_id = chapter["chapter_id"]
-
+    for carousel_index, chapter in enumerate(_db_chapters):
+        ch_id  = chapter["chapter_id"]
+        
+        # if chapter has no character mapped, treat it as locked
         if ch_id not in CHAPTER_CHARACTER_MAP:
+            entries.append({
+                "chapter_id":    ch_id,
+                "chapter_order": chapter["chapter_order"],
+                "name":          "Coming Soon",
+                "story":         chapter["title"],
+                "description":   chapter["description"],
+                "asset":         None,
+                "locked":        True,
+            })
             continue
 
         has_class = get_chapter_class(carousel_index) is not None
@@ -64,11 +71,7 @@ def _build_carousel_entries():
         if not locked:
             char_row  = fetch_character(CHAPTER_CHARACTER_MAP[ch_id])
             char_name = char_row["name"] if char_row else chapter["title"]
-            if char_row:
-                char_id = char_row["character_id"]
-                asset = f"Assets/characters/{char_id}.png"
-            else:
-                asset = None
+            asset     = f"Assets/characters/{char_row['character_id']}.png" if char_row else None
         else:
             char_name = "Coming Soon"
             asset     = None
@@ -82,8 +85,6 @@ def _build_carousel_entries():
             "asset":         asset,
             "locked":        locked,
         })
-
-        carousel_index += 1
 
     return entries
 
@@ -208,7 +209,7 @@ for entry in CHARACTERS:
         char_images.append(make_placeholder())
 
 def draw_buttons(mouse_pos):
-    locked = CHARACTERS[current_character].get("locked", False)
+    locked = CHARACTERS[current_character[0]].get("locked", False)
     for btn in buttons:
         rect, label, colors = btn["rect"], btn["label"], BTN_COLORS[btn["label"]]
         if label == "Play" and locked:
@@ -262,10 +263,10 @@ def draw_lock_badge():
 
 
 def draw_carousel(mouse_pos):
-    entry  = CHARACTERS[current_character]
+    entry  = CHARACTERS[current_character[0]]
     locked = entry.get("locked", False)
 
-    img = char_images[current_character]
+    img = char_images[current_character[0]]
 
     img_rect = img.get_rect(
         midbottom=(
@@ -300,7 +301,7 @@ def launch_story():
         _show_coming_soon()
         return
 
-    chapter_class = get_chapter_class(current_character)
+    chapter_class = get_chapter_class(current_character[0])
     if chapter_class is None:
         _show_coming_soon()
         return
@@ -335,13 +336,11 @@ def _show_coming_soon():
 
 
 def run_student_mainmenu(events):
-    screen    = pygame.display.get_surface()
     mouse_pos = pygame.mouse.get_pos()
     
     for event in events:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            
             for btn in buttons:
                 if btn["rect"].collidepoint(event.pos):
                     if btn["label"] == "Exit":
@@ -355,9 +354,10 @@ def run_student_mainmenu(events):
                         return "progress"
 
             if left_arrow.collidepoint(event.pos):
-                current_character = (current_character - 1) % len(CHARACTERS)
+                current_character[0] = (current_character[0] - 1) % len(CHARACTERS)
             if right_arrow.collidepoint(event.pos):
-                current_character = (current_character + 1) % len(CHARACTERS)
+                current_character[0] = (current_character[0] + 1) % len(CHARACTERS)
+   
 
     screen.blit(bg_scaled,   (0, 0))
     screen.blit(logo_scaled, (int(screen_width * 0.02), int(screen_height * 0.02)))
