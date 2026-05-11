@@ -9,7 +9,7 @@ import pyperclip
 black = (40, 40, 40)
 white = (255, 255, 255)
 
-# --- all set to None, initialized on first call ---
+# all set to None for now will be initialized on first call 
 box_width  = None
 box_height = None
 box_x = None
@@ -138,62 +138,62 @@ def run_create_classroom_overlay(screen, events):
 
     init_overlay(screen)
 
-    # 1. dim background
+    #dim background
     draw_overlay_bg(screen)
 
-    # 2. cream modal box — draw fill first, border last
+    #cream modal box — draw fill first, border last
     pygame.draw.rect(screen, (255, 250, 229), (box_x, box_y, box_width, box_height))
 
-    # 3. blue header bar — draw inside the box, no border_radius needed
+    #blue header bar — draw inside the box, no border_radius needed
     pygame.draw.rect(screen, (169, 203, 236), (box_x, box_y, box_width, 65))
 
-    # header bottom divider line
+    #header bottom divider line
     pygame.draw.line(screen, black, (box_x, box_y + 65), (box_x + box_width, box_y + 65), 8)
 
-    # 4. header title
+    #header title
     draw_text(screen, "Create Classroom",
               box_x + box_width // 2, box_y + 32,
               colour=black, size=int(screen_height * 0.04), anchor="center")
 
-    # 5. labels
+    #labels
     draw_text(screen, "Enter Class Name", box_x + 30, box_y + int(box_height * 0.17), size=int(screen_height * 0.04))
     draw_text(screen, "Class Code",       box_x + 30, box_y + int(box_height * 0.47), size=int(screen_height * 0.04))
     draw_text(screen, "Class Color:",     box_x + 30, box_y + int(box_height * 0.75), size=int(screen_height * 0.04))
 
-    # 6. name field — draw TextInput first, then border on top
+    #name field — draw TextInput first, then border on top
     pygame.draw.rect(screen, white, classroom_name_field.rect, border_radius=10)
     classroom_name_field.draw(screen)
     pygame.draw.rect(screen, black, classroom_name_field.rect, width=8, border_radius=10)  # ← border AFTER draw
 
-    # error msg
+    #error msg
     if error_msg:
         draw_text(screen, error_msg,
                   box_x + 30, box_y + int(box_height * 0.41),
                   colour=(199, 41, 38), size=int(screen_height * 0.025))
 
-    # 7. class code box
+    #class code box
     code_rect = pygame.Rect(box_x + 30, box_y + int(box_height * 0.57), box_width - 110, 55)
     pygame.draw.rect(screen, white, code_rect, border_radius=10)
     pygame.draw.rect(screen, black, code_rect, width=8, border_radius=10)
     draw_text(screen, class_code, code_rect.x + 15, code_rect.y + 12, size=int(screen_height * 0.03))
 
-    # copied feedback
+    #copied feedback
     if copied_timer > 0:
         draw_text(screen, "Copied!",
                   copy_btn.rect.x - 10, box_y + int(box_height * 0.52),
                   colour=(0, 150, 0), size=int(screen_height * 0.025), anchor="topright")
         copied_timer -= 1
 
-    # 8. draw widgets
+    #draw widgets
     draw_color_circles(screen)
     confirm_btn.draw(screen)
     x_btn.draw(screen)
     copy_btn.draw(screen)
 
-    # 9. draw outer modal border LAST so it's always on top
+    #draw outer modal border LAST so it's always on top
     pygame.draw.rect(screen, black, (box_x, box_y, box_width, box_height), width=8)
 
-    # 10. events
+    #events
     for event in events:
         classroom_name_field.handle_event(event)
 
@@ -201,7 +201,7 @@ def run_create_classroom_overlay(screen, events):
             if not modal_rect().collidepoint(event.pos):
                 continue
 
-            # color circle clicks
+            #color circle clicks
             circle_radius = 25
             circle_gap = 15
             start_x = box_x + 30 + 200
@@ -212,17 +212,17 @@ def run_create_classroom_overlay(screen, events):
                 if dist <= circle_radius:
                     selected_color = i
 
-            # copy button — pyperclip
+            #copy button — pyperclip
             if copy_btn.is_clicked(event):
                 pyperclip.copy(class_code)
                 copied_timer = 120
 
-            # X button
+            #X button
             if x_btn.is_clicked(event):
                 reset_overlay()
                 return "cancel", None, None, None
 
-            # confirm button
+            #confirm button
             if confirm_btn.is_clicked(event):
                 name = classroom_name_field.get_text().strip()
                 if 3 <= len(name) <= 50:
@@ -232,7 +232,7 @@ def run_create_classroom_overlay(screen, events):
                     error_msg = "*Must have 3-50 characters"
             
             
-            # color circle clicks
+            #color circle clicks
             for i in range(len(colors)):
                 cx, cy = get_circle_pos(i)
                 dist = ((event.pos[0] - cx)**2 + (event.pos[1] - cy)**2) ** 0.5

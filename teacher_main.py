@@ -3,8 +3,13 @@ import pygame
 from teacher_dashboard import draw_dashboard
 import session
 
+#temp hardcode
+session.current_user = {
+    "user_id": "USR001"
+}
+
 if session.current_user["user_id"] is None:
-    current_page = "login"  # guard against accessing dashboard without logging in
+   current_page = "login"  # guard against accessing dashboard without logging in
 
 pygame.init()
 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)

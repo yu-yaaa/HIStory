@@ -9,9 +9,9 @@ from create_classroom import run_create_classroom_overlay
 from tcher_database import create_classroom
 
 
-user_id = session.current_user["user_id"]
 
-username = get_username(user_id)
+#user_id = session.current_user["user_id"]
+#username = get_username(user_id)
 
 show_create_overlay = False
 
@@ -57,6 +57,8 @@ def draw_text(screen, text, x, y, colour, size, anchor="topleft"):
 
 def draw_dashboard(screen,events):
     global show_create_overlay
+    user_id = session.current_user["user_id"]
+    username = get_username(user_id)
     draw_background(screen)
     #draw the background first
 
@@ -187,28 +189,37 @@ def draw_dashboard(screen,events):
                     None)
     exit_btn.draw(screen)
 
-    for event in events:
-        #door click
-        if event.type == pygame.MOUSEBUTTONDOWN and door_rect.collidepoint(event.pos):
-            return "exit"
+    
+    if not show_create_overlay:
+        for event in events:
+            #door click
+            if event.type == pygame.MOUSEBUTTONDOWN and door_rect.collidepoint(event.pos):
+                return "exit"
 
-        #exit button click
-        if exit_btn.is_clicked(event):
-            return "exit"
-        
-        #create classroom button clicked
-        if create_classroom_btn.is_clicked(event):
-            show_create_overlay = True
+            #exit button click
+            if exit_btn.is_clicked(event):
+                return "exit"
+            
+            #create classroom button clicked
+            if create_classroom_btn.is_clicked(event):
+                show_create_overlay = True
 
     if show_create_overlay:
         result, classroom_name, class_code, class_color = run_create_classroom_overlay(screen, events)
         if result == "confirm":
+
+            print("CONFIRM RECEIVED")
+            print(classroom_name)
+            print(class_code)
+            print(class_color)
+
             create_classroom(
-            session.current_user["user_id"],
-            classroom_name,
-            class_code,
-            class_color  # this is the tuple e.g. (255, 140, 0)
-                )
+                session.current_user["user_id"],
+                classroom_name,
+                class_code,
+                class_color
+            )
+
             show_create_overlay = False
         elif result == "cancel":
             show_create_overlay = False
