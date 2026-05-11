@@ -88,6 +88,7 @@ def run_student_profile(events,show_join_class_popup, profile_pic):
     profile_pic.draw(screen) 
     classroom_box.draw_box(screen)
     join_class_btn.draw(screen)
+    change_password.draw(screen)
     
     draw_text("Joined Class",
               x = classroom_box.Rect.centerx,
