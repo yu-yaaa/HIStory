@@ -3,6 +3,7 @@ from login import run_login
 from register import run_register
 from student_profile import run_student_profile
 from user_profile import ProfilePicture
+from studentmainmenu import run_student_mainmenu
 import session
 
 profile_pic = None
@@ -29,14 +30,22 @@ while running:
             running = False
         elif result == "register":
             current_scene = "register"
-        elif result == "profile":  #temp
-            current_scene = "profile"
+        elif result == "student_menu":
+            current_scene = "student_menu"
+            
     elif current_scene == "register":   # handles navigation buttons on register page
         result = run_register(events)
         if result == "quit":
             running = False
         elif result == "login":
             current_scene = "login"
+            
+    elif current_scene == "student_menu":
+        result  = run_student_mainmenu(events)
+        if result == "profile":
+            current_scene == "profile"
+        #elif result == "progress":
+                
     elif current_scene == "profile":
         if profile_pic is None:
             profile_pic = ProfilePicture(
