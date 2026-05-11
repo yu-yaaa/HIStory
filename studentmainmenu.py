@@ -341,12 +341,6 @@ def run_student_mainmenu(events):
     for event in events:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            print(f"CLICK at {event.pos}")
-            print(f"left_arrow rect  = {left_arrow}")
-            print(f"right_arrow rect = {right_arrow}")
-            print(f"left hit  = {left_arrow.collidepoint(event.pos)}")
-            print(f"right hit = {right_arrow.collidepoint(event.pos)}")
-            
             for btn in buttons:
                 if btn["rect"].collidepoint(event.pos):
                     if btn["label"] == "Exit":
@@ -361,11 +355,9 @@ def run_student_mainmenu(events):
 
             if left_arrow.collidepoint(event.pos):
                 current_character[0] = (current_character[0] - 1) % len(CHARACTERS)
-                print(f"LEFT arrow clicked, now = {current_character[0]}")
             if right_arrow.collidepoint(event.pos):
                 current_character[0] = (current_character[0] + 1) % len(CHARACTERS)
-                print(f"RIGHT arrow clicked, now = {current_character[0]}")
-
+   
 
     screen.blit(bg_scaled,   (0, 0))
     screen.blit(logo_scaled, (int(screen_width * 0.02), int(screen_height * 0.02)))
