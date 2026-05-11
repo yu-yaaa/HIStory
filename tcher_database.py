@@ -51,3 +51,20 @@ def create_classroom(user_id, class_name, class_code, class_color_tuple):
     conn.commit()
     conn.close()
     return classroom_id
+
+def get_profile_image(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT profile_picture 
+        FROM user 
+        WHERE user_id = ?
+    """, (user_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result and result[0]:  # check if column exists and is not NULL
+        return result[0]
+    return None  # no image stored
