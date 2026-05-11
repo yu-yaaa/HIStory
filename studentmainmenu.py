@@ -2,7 +2,8 @@ import pygame
 import os
 from sys import exit
 
-CURRENT_USER_ID = "USR007"  #replace with  studentid
+import session
+CURRENT_USER_ID = session.current_user["user_id"]
 
 from database import fetch_all_chapters, fetch_character
 from studentstoryline import get_chapter_class
@@ -96,7 +97,7 @@ if not CHARACTERS:
         "description": "", "asset": None, "locked": True,
     }]
 
-current_character = 0
+current_character = [0]
 
 button_labels = ["Play", "Player Profile", "Progress Track", "Exit"]
 button_width  = int(screen_width  * 0.24)
@@ -293,7 +294,7 @@ def draw_carousel(mouse_pos):
 
 
 def launch_story():
-    entry = CHARACTERS[current_character]
+    entry = CHARACTERS[current_character[0]]
 
     if entry.get("locked", False):
         _show_coming_soon()
@@ -332,24 +333,26 @@ def _show_coming_soon():
         pygame.display.update()
         clock.tick(60)
 
-running = True
 
-while running:
+def run_student_mainmenu(events):
+    screen    = pygame.display.get_surface()
     mouse_pos = pygame.mouse.get_pos()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+    
+    for event in events:
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            
             for btn in buttons:
                 if btn["rect"].collidepoint(event.pos):
                     if btn["label"] == "Exit":
-                        pygame.quit(); exit()
+                        pygame.quit()
+                        exit()
                     if btn["label"] == "Play":
                         launch_story()
-                    # TODO: Wire up "Player Profile" screen
-                    # TODO: Wire up "Progress Track" screen
+                    if btn["label"] == "Player Profile":
+                        return "profile"
+                    if btn["label"] == "Progress Track":
+                        return "progress"
 
             if left_arrow.collidepoint(event.pos):
                 current_character = (current_character - 1) % len(CHARACTERS)
@@ -360,8 +363,5 @@ while running:
     screen.blit(logo_scaled, (int(screen_width * 0.02), int(screen_height * 0.02)))
     draw_buttons(mouse_pos)
     draw_carousel(mouse_pos)
-    pygame.display.update()
-    clock.tick(60)
-
-pygame.quit()
-exit()
+    
+    return None
