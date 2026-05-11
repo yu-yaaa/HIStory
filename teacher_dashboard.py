@@ -9,6 +9,8 @@ from create_classroom import run_create_classroom_overlay
 from tcher_database import create_classroom
 from img_button import *
 from tcher_database import get_profile_image
+from class_cards import draw_classroom_cards
+from tcher_database import get_teacher_classrooms, get_student_count
 
 #user_id = session.current_user["user_id"]
 #username = get_username(user_id)
@@ -17,7 +19,7 @@ show_create_overlay = False
 
 today = date.today()
 day_name = date.today().strftime("%A")
-
+classrooms_cache = None
 
 def draw_textbox(screen, text, rect, bg_color, text_color, border_color=None):
     pygame.draw.rect(screen, bg_color, rect, border_radius=30)
@@ -54,13 +56,22 @@ def draw_text(screen, text, x, y, colour, size, anchor="topleft"):
         rect.topleft = (x, y) 
     screen.blit(surface, rect)
 
+#classrooms
+def get_classrooms(user_id):
+    global classrooms_cache
+    if classrooms_cache is None:  # only query once, refresh after creating classroom
+        raw = get_teacher_classrooms(user_id)
+        for c in raw:
+            c["student_count"] = get_student_count(c["classroom_id"])
+        classrooms_cache = raw
+    return classrooms_cache
+
 def draw_dashboard(screen,events):
     global show_create_overlay
     user_id = session.current_user["user_id"]
     username = get_username(user_id)
     profile_image_path = get_profile_image(session.current_user["user_id"])
-    draw_background(screen)
-    #draw the background first
+    draw_background(screen) #draw the background first
 
     chalkboard = pygame.image.load("Assets/chalkboard.png").convert_alpha()
     chalkboard = pygame.transform.scale(chalkboard, (int(screen.get_width() *0.84), int(screen.get_height() *0.84)))
@@ -91,6 +102,10 @@ def draw_dashboard(screen,events):
     door = pygame.transform.scale(door, (int(screen.get_width() *0.3), int(screen.get_height() *0.4)))
     door_rect = door.get_rect(center=(int(screen.get_width() * 0.07), int(screen.get_height() * 0.26)))
     screen.blit(door,door_rect)
+
+    # draw cards on the chalkboard
+    classrooms = get_classrooms(session.current_user["user_id"])
+    draw_classroom_cards(screen, classrooms, events)
 
 
     #day and date
@@ -165,7 +180,7 @@ def draw_dashboard(screen,events):
         color="#539CF5",
         hover_color="#347ED9",
         border_color="#1B1F5B",
-        border_r=15,        # fully round — looks like a profile picture
+        border_r=15,
         border_w=10,
         icon_color=(255, 255, 255),
         tooltip="My Profile"
@@ -187,10 +202,6 @@ def draw_dashboard(screen,events):
             if create_classroom_btn.is_clicked(event):
                 show_create_overlay = True
 
-            # icon click — same pattern as door click
-            if event.type == pygame.MOUSEBUTTONDOWN and stud_rect.collidepoint(event.pos):
-                return "manage_students"  # or whatever scene name you use
-
     if show_create_overlay:
         result, classroom_name, class_code, class_color = run_create_classroom_overlay(screen, events)
         if result == "confirm":
@@ -206,7 +217,8 @@ def draw_dashboard(screen,events):
                 class_code,
                 class_color
             )
-
+            classrooms_cache = None  # ← forces refresh next frame
+            show_create_overlay = False
             show_create_overlay = False
         elif result == "cancel":
             show_create_overlay = False

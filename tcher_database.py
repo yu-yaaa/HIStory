@@ -31,6 +31,15 @@ COLOR_TO_ASSET = {
     (180, 100, 255): "Assets/purple book.png",
 }
 
+# map asset paths to color
+ASSET_TO_COLOR = {
+    "Assets/orange book.png":   (255, 140, 0),
+    "Assets/pink book.png":     (255, 105, 180),
+    "Assets/green book.png":    (0, 180, 100),
+    "Assets/blue book.png":     (100, 180, 255),
+    "Assets/purple book.png":   (180, 100, 255),
+}
+
 def generate_classroom_id(cursor):
     cursor.execute("SELECT COUNT(*) FROM classroom")
     count = cursor.fetchone()[0]
@@ -68,3 +77,40 @@ def get_profile_image(user_id):
     if result and result[0]:  # check if column exists and is not NULL
         return result[0]
     return None  # no image stored
+
+def get_teacher_classrooms(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT classroom_id, class_name, class_code, class_color
+        FROM classroom
+        WHERE user_id = ?
+    """, (user_id,))
+    
+    results = cursor.fetchall()
+    conn.close()
+    
+    # return list of dicts for easy access
+    classrooms = []
+    for row in results:
+        classrooms.append({
+            "classroom_id": row[0],
+            "class_name":   row[1],
+            "class_code":   row[2],
+            "class_color":  row[3]
+        })
+    return classrooms
+
+def get_student_count(classroom_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT COUNT(*) FROM user
+        WHERE classroom_id = ? AND user_role = 'student'
+    """, (classroom_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else 0
