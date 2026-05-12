@@ -115,13 +115,14 @@ def get_student_count(classroom_id):
     conn.close()
     return result[0] if result else 0
 
-def get_students_by_classroom(classroom_id):
+def get_students_by_classroom(classroom_id, teacher_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    TOTAL_CHAPTERS = 3  # fixed, you have 3 chapters
+    TOTAL_CHAPTERS = 3
 
     if classroom_id == "All":
+        # only get students in THIS teacher's classrooms
         cursor.execute("""
             SELECT 
                 u.user_id,
@@ -133,8 +134,11 @@ def get_students_by_classroom(classroom_id):
             LEFT JOIN progress p ON u.user_id = p.user_id
             LEFT JOIN minigame_result mg ON u.user_id = mg.user_id
             WHERE u.user_role = 'student'
+            AND u.classroom_id IN (
+                SELECT classroom_id FROM classroom WHERE user_id = ?
+            )
             GROUP BY u.user_id
-        """)
+        """, (teacher_id,))
     else:
         cursor.execute("""
             SELECT 
@@ -155,16 +159,11 @@ def get_students_by_classroom(classroom_id):
 
     students = []
     for row in results:
-        completed       = row[3] or 0
-        minigame_count  = row[4] or 0
-
-        # progress % out of 3 fixed chapters
-        progress_pct = int((completed / TOTAL_CHAPTERS) * 100)
-
-        # attention % — each minigame played deducts from 100
-        # 1 game = -10%, so 10+ games = 0%
-        deduction = minigame_count * 10
-        attention_pct = max(0, 100 - deduction)
+        completed      = row[3] or 0
+        minigame_count = row[4] or 0
+        progress_pct   = int((completed / TOTAL_CHAPTERS) * 100)
+        deduction      = minigame_count * 10
+        attention_pct  = max(0, 100 - deduction)
 
         students.append({
             "user_id":         row[0],

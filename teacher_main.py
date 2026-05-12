@@ -1,12 +1,12 @@
 from asyncio import events
 import pygame
-from stud_management import draw_page
+from stud_management import draw_stud_manage
 from teacher_dashboard import draw_dashboard
 import session
 
 #temp hardcode
 session.current_user = {
-    "user_id": "USR001"
+    "user_id": "USR002"
 }
 
 if session.current_user["user_id"] is None:
@@ -47,13 +47,13 @@ while running:
             current_page = "profile"
 
     elif current_page == "manage_students":
-        action = draw_page(screen, events)
+        action = draw_stud_manage(screen, events)
 
         if action == "dashboard":
             current_page = "dashboard" 
 
     elif current_page == "profile":
-        draw_page(screen,events)
+        pass
 
     pygame.display.flip()
     clock.tick(60)

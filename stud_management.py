@@ -7,27 +7,32 @@ from dropdown import *
 from tcher_database import get_teacher_classrooms, get_students_by_classroom
 
 # module level
-font           = None
-class_dropdown = None
-flag_img       = None
-students       = []
+font                 = None
+class_dropdown       = None
+flag_img             = None
+students             = []
 classroom_name_to_id = {}
+SCROLL_SPEED         = 20
+initialized_for = None
 
 def init(screen):
-    global font, class_dropdown, flag_img
-    if font is not None:
+    global font, class_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected
+
+    current_user_id = session.current_user["user_id"]
+    if initialized_for == current_user_id:
         return
+    
+    initialized_for = current_user_id  # ← mark whom initialized for
+    scroll_offset        = 0
+    last_selected        = "All"
 
     font = pygame.font.Font("Assets/Jersey10-Regular.ttf", 30)
 
-    # fetch this teacher's classrooms for dropdown
     user_id    = session.current_user["user_id"]
     classrooms = get_teacher_classrooms(user_id)
 
-    # build options: "All" + each class name, store classroom_id separately
-    class_options = ["All"] + [c["class_name"] for c in classrooms]
-    # store mapping name -> classroom_id for filtering
-    classroom_name_to_id = {c["class_name"]: c["classroom_id"] for c in classrooms}  
+    class_options        = ["All"] + [c["class_name"] for c in classrooms]
+    classroom_name_to_id = {c["class_name"]: c["classroom_id"] for c in classrooms}
 
     class_dropdown = Dropdown(
         int(screen.get_width() * 0.08),
@@ -45,22 +50,23 @@ def init(screen):
 
 def get_bar_color(pct):
     if pct > 50:
-        return "#00FF1E"    # green
+        return "#00FF1E"
     elif pct > 30:
-        return "#FAD738"    # yellow
+        return "#FAD738"
     else:
-        return "#DC3232"    # red
+        return "#DC3232"
 
-def draw_student_card(screen, student, x, y, card_w=300, card_h=200):
-    black  = (40, 40, 40)
-    white  = (255, 255, 255)
+def draw_student_card(screen, student, x, y, card_w=320, card_h=220):
+    black = (40, 40, 40)
+    white = (255, 255, 255)
     green = "#073B39"
+
     card_rect = pygame.Rect(x, y, card_w, card_h)
     pygame.draw.rect(screen, green, card_rect, border_radius=15)
     pygame.draw.rect(screen, white, card_rect, width=4, border_radius=15)
 
-    # --- profile picture ---
-    pfp_center = (x + 30, y + 30)
+    # profile picture
+    pfp_center = (x + 30, y + 35)
     pygame.draw.circle(screen, (150, 150, 150), pfp_center, 22)
     if student["profile_picture"] and student["profile_picture"] != "None":
         try:
@@ -70,52 +76,56 @@ def draw_student_card(screen, student, x, y, card_w=300, card_h=200):
         except:
             pass
 
-    # --- username ---
+    # username
     draw_text(screen, student["username"],
-              x + 60, y + 18, colour=white, size=26)
+              x + 62, y + 22, colour=white, size=26)
 
-    # --- progress bar ---
+    # progress bar
+    bar_x   = x + 15
+    bar_w   = int(card_w * 0.55)
+    label_w = 115
+
     draw_text(screen, "Progress",
-              x + 15, y + 65, colour=white, size=22)
-
-    prog_bg   = pygame.Rect(x + 110, y + 63, card_w - 130, 26)
-    prog_fill = pygame.Rect(x + 110, y + 63,
-                            int((card_w - 130) * student["progress"] / 100), 26)
+              bar_x, y + 72, colour=white, size=22)
+    prog_bg   = pygame.Rect(bar_x + label_w, y + 70, bar_w, 26)
+    prog_fill = pygame.Rect(bar_x + label_w, y + 70,
+                            int(bar_w * student["progress"] / 100), 26)
     pygame.draw.rect(screen, "#FFECD2", prog_bg,   border_radius=13)
-    pygame.draw.rect(screen, get_bar_color(student["progress"]), prog_fill, border_radius=13, )
+    pygame.draw.rect(screen, get_bar_color(student["progress"]), prog_fill, border_radius=13)
     pygame.draw.rect(screen, black, prog_bg, width=3, border_radius=13)
     draw_text(screen, f"{student['progress']}%",
               prog_bg.centerx, prog_bg.centery,
               colour=black, size=20, anchor="center")
 
-    # --- attention bar ---
+    # attention bar
     draw_text(screen, "Avg. Attention",
-              x + 15, y + 105, colour=white, size=22)
-
-    att_bg   = pygame.Rect(x + 110, y + 103, card_w - 130, 26)
-    att_fill = pygame.Rect(x + 110, y + 103,
-                           int((card_w - 130) * student["attention"] / 100), 26)
-    pygame.draw.rect(screen, (220, 220, 200), att_bg,   border_radius=13)
+              bar_x, y + 112, colour=white, size=22)
+    att_bg   = pygame.Rect(bar_x + label_w, y + 110, bar_w, 26)
+    att_fill = pygame.Rect(bar_x + label_w, y + 110,
+                           int(bar_w * student["attention"] / 100), 26)
+    pygame.draw.rect(screen, "#FFECD2", att_bg,   border_radius=13)
     pygame.draw.rect(screen, get_bar_color(student["attention"]), att_fill, border_radius=13)
     pygame.draw.rect(screen, black, att_bg, width=3, border_radius=13)
     draw_text(screen, f"{student['attention']}%",
               att_bg.centerx, att_bg.centery,
               colour=black, size=20, anchor="center")
 
-    # --- view and remove buttons ---
+    # buttons
+    btn_y  = y + card_h - 58
+    btn_w  = int(card_w * 0.38)
+    gap    = int(card_w * 0.08)
+
     view_btn = Button("View",
-                      x + 15, y + card_h - 55,
-                      int(card_w * 0.4), 40,
-                      "#D36EEE", (120, 50, 190), "#A03ACE",
+                      x + 15, btn_y, btn_w, 40,
+                      "#D36EEE", "#A03ACE", "#A03ACE",
                       border_r=30, border_w=5,
-                      font_size=25, font_color=white)
+                      font_size=22, font_color=white)
 
     remove_btn = Button("Remove",
-                        x + int(card_w * 0.55), y + card_h - 55,
-                        int(card_w * 0.4), 40,
-                        (220, 50, 50), (180, 30, 30), "#C10A0A",
+                        x + 15 + btn_w + gap, btn_y, btn_w, 40,
+                        (220, 50, 50), "#C10A0A", "#C10A0A",
                         border_r=30, border_w=5,
-                        font_size=25, font_color=white)
+                        font_size=22, font_color=white)
 
     view_btn.draw(screen)
     remove_btn.draw(screen)
@@ -123,11 +133,68 @@ def draw_student_card(screen, student, x, y, card_w=300, card_h=200):
     return view_btn, remove_btn
 
 
-def draw_page(screen, events):
-    global students
+def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_h):
+    global scroll_offset
+
+    card_w  = 400
+    card_h  = 210
+    cols    = 3
+    padding = 30
+
+    rows         = max(1, (len(students) + cols - 1) // cols)
+    total_height = rows * (card_h + padding)
+
+    # clamp scroll
+    max_scroll    = max(0, total_height - area_h)
+    scroll_offset = max(0, min(scroll_offset, max_scroll))
+
+    # clip drawing to card area so cards don't draw over UI
+    clip_rect = pygame.Rect(start_x, start_y, area_w, area_h)
+    screen.set_clip(clip_rect)
+
+    for i, student in enumerate(students):
+        col = i % cols
+        row = i // cols
+        x   = start_x + col * (card_w + padding)
+        y   = start_y + row * (card_h + padding) - scroll_offset
+
+        # skip cards not visible
+        if y + card_h < start_y or y > start_y + area_h:
+            continue
+
+        view_btn, remove_btn = draw_student_card(screen, student, x, y, card_w, card_h)
+
+        for event in events:
+            if view_btn.is_clicked(event):
+                pass  # TODO: view student
+            if remove_btn.is_clicked(event):
+                pass  # TODO: remove student
+
+    screen.set_clip(None)  # ← always reset clip
+
+    # scrollbar
+    if total_height > area_h:
+        bar_x        = start_x + area_w + 8
+        bar_track    = pygame.Rect(bar_x, start_y, 10, area_h)
+        scroll_ratio = scroll_offset / max_scroll if max_scroll > 0 else 0
+        bar_h        = max(40, int(area_h * (area_h / total_height)))
+        bar_y        = start_y + int(scroll_ratio * (area_h - bar_h))
+        bar_fill     = pygame.Rect(bar_x, bar_y, 10, bar_h)
+
+        pygame.draw.rect(screen, (80, 80, 80),    bar_track, border_radius=5)
+        pygame.draw.rect(screen, (200, 200, 200), bar_fill,  border_radius=5)
+
+    # scroll wheel — only when mouse is over card area
+    for event in events:
+        if event.type == pygame.MOUSEWHEEL:
+            if clip_rect.collidepoint(pygame.mouse.get_pos()):
+                scroll_offset -= event.y * SCROLL_SPEED
+
+
+def draw_stud_manage(screen, events):
+    global students, scroll_offset, last_selected
     init(screen)
 
-    user_id = session.current_user["user_id"]
     draw_background(screen)
 
     # background panels
@@ -163,51 +230,35 @@ def draw_page(screen, events):
                       tooltip="Back to dashboard")
     back_btn.draw(screen)
 
-    # dropdown label
-    draw_text(screen, "Filter by Class:",
-              int(screen.get_width() * 0.08),
-              int(screen.get_height() * 0.22),
-              (255, 255, 255), size=28)
 
-    class_dropdown.draw(screen)
-
-    # fetch students based on selected class
+    # fetch students — reset scroll if filter changed
     selected = class_dropdown.selected
-    if selected == "All":
-        classroom_id = "All"
+    if selected != last_selected:
+        scroll_offset = 0
+        last_selected = selected
+
+    classroom_id = "All" if selected == "All" else classroom_name_to_id.get(selected, "All")
+    students = get_students_by_classroom(classroom_id, session.current_user["user_id"])  #pass teacher_id
+
+    # scrollable card area
+    cards_start_x = int(screen.get_width() * 0.12)
+    cards_start_y = int(screen.get_height() * 0.38)
+    cards_area_w  = int(screen.get_width() * 0.8)
+    cards_area_h  = int(screen.get_height() * 0.58)  # ← controls how tall the scroll area is
+
+    if students:
+        draw_student_cards(screen, students, events,
+                           cards_start_x, cards_start_y,
+                           cards_area_w, cards_area_h)
     else:
-        classroom_id = classroom_name_to_id.get(selected, "All")
-    students = get_students_by_classroom(classroom_id)
-
-    # draw student cards in a grid — 4 per row
-    card_w   = 380
-    card_h   = 210
-    cols     = 3
-    padding  = 30
-    start_x  = int(screen.get_width() * 0.12)
-    start_y  = int(screen.get_height() * 0.38)
-
-    for i, student in enumerate(students):
-        col = i % cols
-        row = i // cols
-        x = start_x + col * (card_w + padding)
-        y = start_y + row * (card_h + padding)
-        view_btn, remove_btn = draw_student_card(screen, student, x, y, card_w, card_h)
-
-        for event in events:
-            if view_btn.is_clicked(event):
-                pass  # TODO: go to student detail page
-            if remove_btn.is_clicked(event):
-                pass  # TODO: remove student from class
-
-    # no students message
-    if not students:
         draw_text(screen, "No students found.",
                   screen.get_width() // 2,
                   int(screen.get_height() * 0.5),
                   (255, 255, 255), size=32, anchor="center")
+    
+    class_dropdown.draw(screen)
 
-    # events
+    # events — back button and dropdown
     for event in events:
         if back_btn.is_clicked(event):
             return "dashboard"
