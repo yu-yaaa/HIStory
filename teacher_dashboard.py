@@ -16,6 +16,8 @@ from tcher_database import get_teacher_classrooms, get_student_count
 #username = get_username(user_id)
 
 show_create_overlay = False
+success_msg = ""
+success_timer = 0
 
 today = date.today()
 day_name = date.today().strftime("%A")
@@ -71,6 +73,8 @@ def draw_dashboard(screen,events):
     user_id = session.current_user["user_id"]
     username = get_username(user_id)
     profile_image_path = get_profile_image(session.current_user["user_id"])
+    global success_msg, success_timer
+
     draw_background(screen) #draw the background first
 
     chalkboard = pygame.image.load("Assets/chalkboard.png").convert_alpha()
@@ -187,6 +191,29 @@ def draw_dashboard(screen,events):
     )
     pfp_icon_btn.draw(screen)
 
+    if success_timer > 0:
+        success_box = pygame.Rect(
+            screen.get_width() // 2 - 250,
+            40,
+            500,
+            70
+        )
+
+        pygame.draw.rect(screen, (0, 180, 100), success_box, border_radius=20)
+        pygame.draw.rect(screen, (255, 255, 255), success_box, width=5, border_radius=20)
+
+        draw_text(
+            screen,
+            success_msg,
+            success_box.centerx,
+            success_box.centery,
+            (255, 255, 255),
+            40,
+            anchor="center"
+        )
+
+        success_timer -= 1
+
     
     if not show_create_overlay:
         for event in events:
@@ -217,8 +244,10 @@ def draw_dashboard(screen,events):
                 class_code,
                 class_color
             )
-            classrooms_cache = None  # ← forces refresh next frame
+            classrooms_cache = None  #forces refresh next frame
+            success_msg = "Classroom created successfully!"
+            success_timer = 60 #show for 3 secs
             show_create_overlay = False
-            show_create_overlay = False
+
         elif result == "cancel":
             show_create_overlay = False

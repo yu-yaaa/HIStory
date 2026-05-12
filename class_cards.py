@@ -107,12 +107,14 @@ def draw_book_card(screen, classroom, cx, cy, events):
     icon_rect = copy_icon_white.get_rect(center=copy_btn_rect.center)
     screen.blit(copy_icon_white, icon_rect)
 
-    # copied feedback
+    #copied feedback
     if copied_timers.get(cid, 0) > 0:
         draw_text(screen, "Copied!",
-                  card_rect.right - 10, body_y + line_gap - 8,
-                  colour=(0, 150, 0), size=20, anchor="topright")
-        copied_timers[cid] -= 1
+          copy_btn_rect.centerx,
+          copy_btn_rect.top - 10,
+          colour=(0, 150, 0),
+          size=20,
+          anchor="center")
 
     #manage students button — outside the if block
     manage_rect = pygame.Rect(card_rect.x + 15,
@@ -132,7 +134,7 @@ def draw_book_card(screen, classroom, cx, cy, events):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if copy_btn_rect.collidepoint(event.pos):
                 pyperclip.copy(classroom["class_code"])
-                copied_timers[cid] = 90
+                copied_timers[cid] = 60
 
             if manage_rect.collidepoint(event.pos):
                 return "manage_students", cid
@@ -170,25 +172,25 @@ def draw_classroom_cards(screen, classrooms, events):
         if action == "manage_students":
             return "manage_students", cid
 
-    # arrows 
+    #arrows 
     arrow_y = board_mid_y
 
     left_rect  = pygame.Rect(board_left - 55, arrow_y - 30, 45, 60)
     right_rect = pygame.Rect(board_right + 10, arrow_y - 30, 45, 60)
 
-    # draw left arrow only if not on first page
+    #draw left arrow only if not on first page
     if current_page > 0:
         pygame.draw.rect(screen, black, left_rect, border_radius=10)
         draw_text(screen, "<", left_rect.centerx, left_rect.centery,
                 colour=white, size=40, anchor="center")
 
-    # draw right arrow only if not on last page
+    #draw right arrow only if not on last page
     if current_page < total_pages - 1:
         pygame.draw.rect(screen, black, right_rect, border_radius=10)
         draw_text(screen, ">", right_rect.centerx, right_rect.centery,
                 colour=white, size=40, anchor="center")
 
-    # ← single event loop for BOTH arrows
+    #single event loop for BOTH arrows
     for event in events:
         if event.type == pygame.MOUSEBUTTONDOWN:
             if current_page > 0 and left_rect.collidepoint(event.pos):
