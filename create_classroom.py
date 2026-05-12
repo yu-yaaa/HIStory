@@ -225,9 +225,14 @@ def run_create_classroom_overlay(screen, events):
             #confirm button
             if confirm_btn.is_clicked(event):
                 name = classroom_name_field.get_text().strip()
+
                 if 3 <= len(name) <= 50:
+                    chosen_color = colors[selected_color]
+                    chosen_code = class_code
+
                     reset_overlay()
-                    return "confirm", name, class_code, colors[selected_color]
+
+                    return "confirm", name, chosen_code, chosen_color
                 else:
                     error_msg = "*Must have 3-50 characters"
             
