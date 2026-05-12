@@ -271,7 +271,6 @@ class StoryChapter1(StoryChapterBase):
         )
 
 class _StoryPart(StoryChapterBase):
-    """Re-usable DB-driven story scene player for Parts 2 and 3."""
 
     CLR_BG         = (15, 25, 60)
     CLR_ACCENT     = (204, 0, 0)
@@ -544,10 +543,6 @@ class StoryChapter1Part3(_StoryPart):
         )
 
 class StoryChapter1Full(StoryChapterBase):
-    """
-    Full Chapter 1 — chains Part 1 → Debate 1 → Part 2 → Debate 2 → Part 3.
-    """
-
     def load_assets(self):
         self.total_debate_score = 0
 
@@ -660,6 +655,8 @@ class StoryChapter1Full(StoryChapterBase):
 
 CHAPTER_MAP = {
     0: StoryChapter1Full,
+
+    #Future chapters add here
 }
 
 

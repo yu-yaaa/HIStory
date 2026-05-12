@@ -17,10 +17,6 @@ clock  = pygame.time.Clock()
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 def asset_path(relative: str) -> str:
-    """Return an absolute path for a relative asset path stored in the DB
-    or hardcoded in this file.  Tries the path as-is first, then resolves
-    it relative to PROJECT_ROOT so the game works from any working directory.
-    """
     if os.path.isfile(relative):
         return relative
     full = os.path.join(PROJECT_ROOT, relative)
@@ -31,9 +27,9 @@ bg   = pygame.image.load(asset_path("Assets/background/Main Menu background.png"
 
 screen_width, screen_height = screen.get_size()
 
-font       = pygame.font.SysFont("Arial", int(screen_height * 0.038))
-name_font  = pygame.font.SysFont("Arial", int(screen_height * 0.022), bold=True)
-story_font = pygame.font.SysFont("Arial", int(screen_height * 0.018))
+font       = pygame.font.SysFont("Jersey10-Regular.ttf", int(screen_height * 0.038))
+name_font  = pygame.font.SysFont("Jersey10-Regular.ttf", int(screen_height * 0.022), bold=True)
+story_font = pygame.font.SysFont("Jersey10-Regular.ttf", int(screen_height * 0.018))
 bg_scaled  = pygame.transform.scale(bg, (screen_width, screen_height))
 
 logo_height = int(screen_height * 0.18)
@@ -348,8 +344,6 @@ while running:
                         pygame.quit(); exit()
                     if btn["label"] == "Play":
                         launch_story()
-                    # TODO: Wire up "Player Profile" screen
-                    # TODO: Wire up "Progress Track" screen
 
             if left_arrow.collidepoint(event.pos):
                 current_character = (current_character - 1) % len(CHARACTERS)

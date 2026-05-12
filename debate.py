@@ -43,7 +43,7 @@ class PowerUp:
             self.icon = None
 
 DEBATE_ROUNDS: "list[DebateRound]" = [
-
+#debat line and answer selection
     DebateRound(
         speaker="Narrator",
         dialogue=(

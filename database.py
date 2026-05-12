@@ -1,6 +1,8 @@
 import sqlite3
 import os
 
+#Extract all the data from database
+
 _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HIStory.db")
 
 def get_connection() -> sqlite3.Connection:
