@@ -228,6 +228,14 @@ def draw_dashboard(screen,events):
             #create classroom button clicked
             if create_classroom_btn.is_clicked(event):
                 show_create_overlay = True
+            
+            #student management click
+            if stud_icon_btn.is_clicked(event):
+                return "manage_students"
+            
+            #profile click'
+            if pfp_icon_btn.is_clicked(event):
+                return "profile"
 
     if show_create_overlay:
         result, classroom_name, class_code, class_color = run_create_classroom_overlay(screen, events)

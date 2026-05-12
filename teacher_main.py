@@ -1,5 +1,6 @@
 from asyncio import events
 import pygame
+from stud_management import draw_page
 from teacher_dashboard import draw_dashboard
 import session
 
@@ -39,9 +40,17 @@ while running:
         if action == "exit":
             running = False
 
-        #if mouse_click:
-            #if buttons["manage_students"].collidepoint(mouse_pos):
-               #  current_page = "students"
+        if action == "manage_students":
+            current_page = "manage_students"
+        
+        if action == "profile":
+            current_page = "profile"
+
+    elif current_page == "manage_students":
+        draw_page(screen, current_page, events)
+
+    elif current_page == "profile":
+        draw_page(screen,current_page,events)
 
     pygame.display.flip()
     clock.tick(60)
