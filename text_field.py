@@ -95,7 +95,7 @@ class TextInput:
             self.rect.width - padding_x * 2,
             self.rect.height
         )
-
+        
         # Vertically center the text inside the box
         text_y = self.rect.y + (self.rect.height - text_surface.get_height()) // 2
 
@@ -109,7 +109,7 @@ class TextInput:
 
         #  Set clip so nothing draws outside the box
         screen.set_clip(inner_rect)
-        screen.blit(text_surface, (inner_rect.x, inner_rect.y))
+        screen.blit(text_surface, (inner_rect.x, text_y))
         screen.set_clip(None) 
         
     def get_text(self):

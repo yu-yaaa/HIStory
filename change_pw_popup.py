@@ -64,6 +64,7 @@ new_pw = TextInput(x = int(screen_width * 0.315),
                    y = int(screen_height * 0.38),
                    width = int(popup_w * 0.71),
                    height=int(popup_h * 0.1),
+                   font_size= int(screen_height * 0.04),
                    is_password= True,
                    is_hidden=True)
 
@@ -71,6 +72,7 @@ confirm_pw = TextInput(x = int(screen_width * 0.315),
                         y = int(screen_height * 0.475),
                         width = int(popup_w * 0.71),
                         height=int(popup_h * 0.1),
+                        font_size= int(screen_height * 0.04),
                         is_password= True,
                         is_hidden=True)
 
@@ -103,7 +105,8 @@ show_comfirm_pw_button = Button("SHOW",   # show comfirm password
 otp_field = TextInput(x = int(screen_width * 0.315),
                         y = int(screen_height * 0.575),
                         width = int(popup_w * 0.9),
-                        height=int(popup_h * 0.1))
+                        height=int(popup_h * 0.1),
+                        font_size= int(screen_height * 0.04))
 
 def validate_password(pass1, pass2, otp, gmail):
     if not pass1 or not pass2 or not otp:
