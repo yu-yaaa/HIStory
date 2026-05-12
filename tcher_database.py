@@ -114,3 +114,64 @@ def get_student_count(classroom_id):
     result = cursor.fetchone()
     conn.close()
     return result[0] if result else 0
+
+def get_students_by_classroom(classroom_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    TOTAL_CHAPTERS = 3  # fixed, you have 3 chapters
+
+    if classroom_id == "All":
+        cursor.execute("""
+            SELECT 
+                u.user_id,
+                u.username,
+                u.profile_picture,
+                COUNT(CASE WHEN p.status = 'Completed' THEN 1 END) as completed,
+                COUNT(mg.minigame_result_id) as minigame_count
+            FROM user u
+            LEFT JOIN progress p ON u.user_id = p.user_id
+            LEFT JOIN minigame_result mg ON u.user_id = mg.user_id
+            WHERE u.user_role = 'student'
+            GROUP BY u.user_id
+        """)
+    else:
+        cursor.execute("""
+            SELECT 
+                u.user_id,
+                u.username,
+                u.profile_picture,
+                COUNT(CASE WHEN p.status = 'Completed' THEN 1 END) as completed,
+                COUNT(mg.minigame_result_id) as minigame_count
+            FROM user u
+            LEFT JOIN progress p ON u.user_id = p.user_id
+            LEFT JOIN minigame_result mg ON u.user_id = mg.user_id
+            WHERE u.classroom_id = ? AND u.user_role = 'student'
+            GROUP BY u.user_id
+        """, (classroom_id,))
+
+    results = cursor.fetchall()
+    conn.close()
+
+    students = []
+    for row in results:
+        completed       = row[3] or 0
+        minigame_count  = row[4] or 0
+
+        # progress % out of 3 fixed chapters
+        progress_pct = int((completed / TOTAL_CHAPTERS) * 100)
+
+        # attention % — each minigame played deducts from 100
+        # 1 game = -10%, so 10+ games = 0%
+        deduction = minigame_count * 10
+        attention_pct = max(0, 100 - deduction)
+
+        students.append({
+            "user_id":         row[0],
+            "username":        row[1],
+            "profile_picture": row[2],
+            "progress":        progress_pct,
+            "attention":       attention_pct,
+        })
+
+    return students

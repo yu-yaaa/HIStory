@@ -66,12 +66,9 @@ def draw_book_card(screen, classroom, cx, cy, events):
     # header bar
     header_rect = pygame.Rect(card_rect.x, card_rect.y, CARD_W, 60)
     pygame.draw.rect(screen, header_color, header_rect, border_radius=20)
-    pygame.draw.rect(screen, header_color,
-                     pygame.Rect(card_rect.x, card_rect.y + 40, CARD_W, 22))
+    pygame.draw.rect(screen, header_color,pygame.Rect(card_rect.x, card_rect.y + 40, CARD_W, 22))
     pygame.draw.rect(screen, white, card_rect, width=8, border_radius=20)
-    pygame.draw.line(screen, white,
-                     (card_rect.x, card_rect.y + 60),
-                     (card_rect.right, card_rect.y + 60), 3)
+    pygame.draw.line(screen, white,(card_rect.x, card_rect.y + 60),(card_rect.right, card_rect.y + 60), 3)
 
     # book icon
     icon_x = card_rect.x + 10

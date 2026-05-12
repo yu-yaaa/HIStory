@@ -47,10 +47,13 @@ while running:
             current_page = "profile"
 
     elif current_page == "manage_students":
-        draw_page(screen, current_page, events)
+        action = draw_page(screen, events)
+
+        if action == "dashboard":
+            current_page = "dashboard" 
 
     elif current_page == "profile":
-        draw_page(screen,current_page,events)
+        draw_page(screen,events)
 
     pygame.display.flip()
     clock.tick(60)

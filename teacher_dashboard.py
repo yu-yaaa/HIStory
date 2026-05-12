@@ -23,28 +23,6 @@ today = date.today()
 day_name = date.today().strftime("%A")
 classrooms_cache = None
 
-def draw_textbox(screen, text, rect, bg_color, text_color, border_color=None):
-    pygame.draw.rect(screen, bg_color, rect, border_radius=30)
-
-    if border_color:
-        pygame.draw.rect(screen, border_color, rect, width=5, border_radius=30)
-
-    font = pygame.font.Font("Assets/Jersey10-Regular.ttf", 30)
-    #splits into separate lines 
-    lines = text.split("\n") 
-    line_height = font.get_height()
-
-    total_height = len(lines) * line_height
-
-    for i, line in enumerate(lines):
-        text_surface = font.render(line, True, text_color)
-        text_rect = text_surface.get_rect()
-
-        text_rect.centerx = rect.centerx
-        text_rect.y = rect.y + (rect.height - total_height)//2 + i * line_height
-
-        screen.blit(text_surface, text_rect)
-
 #font access
 def draw_text(screen, text, x, y, colour, size, anchor="topleft"):
     f = pygame.font.Font("Assets/Jersey10-Regular.ttf", size) 
