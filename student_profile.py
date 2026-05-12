@@ -4,6 +4,7 @@ from content_box import Box
 from login_register_base import screen,screen_height,screen_width
 from login_register_base import draw_text
 from join_class_popup import join_class_popup, popup_state
+from change_pw_popup import run_change_pw_popup
 from user_profile import ProfilePicture
 from arrow_button import Arrow_Button
 from queries import *
@@ -59,7 +60,7 @@ join_class_btn = Button("Join Class",
                         font_size = int(screen_height * 0.03),
                         font_color = white)
 
-def run_student_profile(events,show_join_class_popup, profile_pic):
+def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()
 
     if classroom is None:
@@ -76,14 +77,15 @@ def run_student_profile(events,show_join_class_popup, profile_pic):
     max_width  = user_info.Rect.right - int(screen_width * 0.15) - int(screen_width * 0.01)
 
     draw_text("Username: ", x=int(screen_width * 0.06), y=int(screen_height * 0.37), size=font_size)
-    draw_text("Gmail: ",    x=int(screen_width * 0.06), y=int(screen_height * 0.41),  size=font_size)
-    draw_text(username,     x=int(screen_width * 0.15), y=int(screen_height * 0.37), size=font_size)
+    draw_text("Gmail: ", x=int(screen_width * 0.06), y=int(screen_height * 0.41),  size=font_size)
 
     # Check if gmail fits, if not drop to next line with smaller font
     if gmail_font.size(gmail)[0] > max_width:
-        draw_text(gmail, x=int(screen_width * 0.15), y=int(screen_height * 0.415), size=small_font_size)
+        draw_text(username, x=int(screen_width * 0.135), y=int(screen_height * 0.375), size=small_font_size)
+        draw_text(gmail, x=int(screen_width * 0.135), y=int(screen_height * 0.415), size=small_font_size)
     else:
-        draw_text(gmail, x=int(screen_width * 0.15), y=int(screen_height * 0.41),   size=font_size)
+        draw_text(username, x=int(screen_width * 0.15), y=int(screen_height * 0.37), size=font_size)
+        draw_text(gmail, x=int(screen_width * 0.1), y=int(screen_height * 0.41),   size=font_size)
        
     profile_pic.draw(screen) 
     classroom_box.draw_box(screen)
@@ -117,6 +119,7 @@ def run_student_profile(events,show_join_class_popup, profile_pic):
               size = int(screen_height * 0.04),
               anchor = "center")
     just_opened = False
+    just_opened_pw = False
 
     for event in events: 
         profile_pic.handle_event(event)
@@ -124,7 +127,10 @@ def run_student_profile(events,show_join_class_popup, profile_pic):
             if join_class_btn.is_clicked(event):
                 show_join_class_popup = True
                 just_opened = True
-
+        if change_password.is_clicked(event):
+            just_opened_pw = True
+            show_change_pw_popup = True
+        
     if show_join_class_popup and not just_opened:
         result = join_class_popup(events)
         if result == "exit":
@@ -137,4 +143,8 @@ def run_student_profile(events,show_join_class_popup, profile_pic):
             elif status == "Fail":
                 popup_state["error_msg"] = "Classroom not found!"
                 
-    return "profile", show_join_class_popup 
+    if show_change_pw_popup and not just_opened_pw:
+        result = run_change_pw_popup(events)
+        if result == "exit":
+            show_change_pw_popup = False
+    return "profile", show_join_class_popup , show_change_pw_popup

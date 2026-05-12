@@ -17,6 +17,7 @@ clock  = pygame.time.Clock()
 current_scene = "login" # User is automatically send to the login page when the game starts
 running = True
 show_join_popup = False 
+show_change_pw_popup =False
 while running:
     events = pygame.event.get()
 
@@ -54,7 +55,7 @@ while running:
             box_y    = int(screen.get_height() * 0.07),   # ← higher up
             box_size = int(screen.get_height() * 0.2)    # ← smaller box
         )
-        current_scene, show_join_popup = run_student_profile(events, show_join_popup, profile_pic)
+        current_scene, show_join_popup, show_change_pw_popup = run_student_profile(events, show_join_popup, profile_pic, show_change_pw_popup)
     
     # reset when leaving profile page
     if current_scene != "profile":

@@ -1,6 +1,6 @@
 import session
 import sqlite3
-
+import datetime
 from conn import cursor
 from conn import conn
 
@@ -88,3 +88,38 @@ def save_profile_picture(file_path):
     user_id = session.current_user["user_id"]
     cursor.execute("UPDATE user SET profile_picture = ? WHERE user_id = ?", (file_path, user_id))
     conn.commit()
+    
+def save_otp(otp):
+    try:
+        user_id = session.current_user["user_id"]
+        cursor.execute('UPDATE user SET otp_code = ?, otp_created_at = ? WHERE user_id = ?', (otp, datetime.datetime.now().isoformat(), user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving OTP: {e}")
+        return False
+    
+        
+def get_otp(user_email):
+    user_id = session.current_user["user_id"]
+    try:
+        user_id = session.current_user["user_id"]
+        cursor.execute('SELECT otp_code, otp_created_at FROM user WHERE email = ? AND user_id = ?', (user_email, user_id))
+        result = cursor.fetchone()
+        print(f"get_otp result for {user_email}: {result}")
+        return result
+    except Exception as e:
+        print(f"Error getting OTP: {e}")
+        return None
+    
+        
+def save_new_pw(new_password):
+    try:
+        user_id = session.current_user["user_id"]
+        cursor.execute('UPDATE user SET password = ? WHERE user_id = ?', (new_password, user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        print(f"Error saving new password: {e}")
+        return False
+    
