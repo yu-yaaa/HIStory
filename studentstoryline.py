@@ -18,11 +18,8 @@ class StoryChapterBase:
         self.screen  = screen
         self.clock   = clock
         self.running = True
-        # ── FIX: flag that tells callers HOW the loop ended ──────────────────
-        # True  = player clicked "◀ Menu" or pressed ESC  → go back to main menu
-        # False = player finished all slides naturally     → proceed to next step
+
         self._back_to_menu = False
-        # ─────────────────────────────────────────────────────────────────────
 
         self.screen_width, self.screen_height = screen.get_size()
 
@@ -49,9 +46,9 @@ class StoryChapterBase:
 
     def handle_event(self, event: pygame.event.Event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            # ── FIX: mark as menu-exit before stopping ────────────────────────
+
             self._back_to_menu = True
-            # ─────────────────────────────────────────────────────────────────
+
             self.running = False
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -59,7 +56,7 @@ class StoryChapterBase:
 
     def run(self) -> str:
         self.running       = True
-        self._back_to_menu = False          # reset each run() call
+        self._back_to_menu = False         
         while self.running:
             for event in pygame.event.get():
                 self.handle_event(event)
@@ -69,13 +66,9 @@ class StoryChapterBase:
             pygame.display.update()
             self.clock.tick(60)
 
-        # ── FIX: only launch DebateGame when the player finished all slides ──
-        # Previously this ran unconditionally, causing the debate to launch
-        # even when the back/ESC button was pressed.
         if not self._back_to_menu:
             debate = DebateGame(self.screen, self.clock)
             score  = debate.run()
-        # ─────────────────────────────────────────────────────────────────────
 
         return "menu"
 
@@ -184,9 +177,9 @@ class StoryChapter1(StoryChapterBase):
                     self.running = False          # finished all slides normally
 
             if self.back_btn.collidepoint(mouse):
-                # ── FIX: mark as menu-exit so callers know to stop ────────────
+
                 self._back_to_menu = True
-                # ─────────────────────────────────────────────────────────────
+
                 self.running = False
 
     def update(self):
@@ -414,9 +407,9 @@ class _StoryPart(StoryChapterBase):
                     self.running = False          # finished normally
 
             if self.back_btn.collidepoint(mouse):
-                # ── FIX: mark as menu-exit ────────────────────────────────────
+
                 self._back_to_menu = True
-                # ─────────────────────────────────────────────────────────────
+
                 self.running = False
 
     def update(self):
@@ -584,7 +577,6 @@ class StoryChapter1Part3(_StoryPart):
 
 
 class StoryChapter1Full(StoryChapterBase):
-    # ── PROGRESSION: accepts user_id; default keeps old call-sites working ───
     def __init__(
         self,
         screen: pygame.Surface,
@@ -593,7 +585,6 @@ class StoryChapter1Full(StoryChapterBase):
     ):
         self._user_id = user_id
         super().__init__(screen, clock)
-    # ─────────────────────────────────────────────────────────────────────────
 
     def load_assets(self):
         self.total_debate_score = 0
@@ -603,8 +594,6 @@ class StoryChapter1Full(StoryChapterBase):
 
     def render(self):
         pass
-
-    # ── PROGRESSION HELPERS ──────────────────────────────────────────────────
 
     def _save(self, part: int, scene: int, status: str):
         """Save current position to the database immediately."""
@@ -617,21 +606,14 @@ class StoryChapter1Full(StoryChapterBase):
         )
 
     def _load_saved(self) -> dict:
-        """
-        Return the saved progress dict, or a default that starts from the beginning.
-        Keys: current_part (1/2/3), current_scene (0-based), score, status
-        If the chapter was previously Completed, reset to the beginning so the
-        student can replay from Chapter 1 Part 1.
-        """
+
         saved = get_story_progress(self._user_id)
         if saved is None:
             return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
-        # Completed → restart from the very beginning (replay)
+
         if saved["status"] == "Completed":
             return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
         return saved
-
-    # ─────────────────────────────────────────────────────────────────────────
 
     def _show_transition(self, line1: str, line2: str = "", duration_ms: int = 2800):
         overlay_font = pygame.font.Font(FONT_PATH, int(self.screen_height * 0.06))
@@ -692,19 +674,19 @@ class StoryChapter1Full(StoryChapterBase):
             duration_ms=2200,
         )
         part1 = StoryChapter1(self.screen, self.clock)
-        # ── PROGRESSION: jump to the saved scene ─────────────────────────────
+
         if resume_scene > 0 and resume_scene < part1.total_slides:
             part1.dialogue_index = resume_scene
             part1._ensure_slide_assets(resume_scene)
-        # ─────────────────────────────────────────────────────────────────────
+
         part1.running       = True
         part1._back_to_menu = False
         while part1.running:
             for event in pygame.event.get():
                 part1.handle_event(event)
-            # ── PROGRESSION: auto-save as player moves through scenes ─────────
+
             self._save(part=1, scene=part1.dialogue_index, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
             part1.update()
             part1.render()
             pygame.display.update()
@@ -712,29 +694,26 @@ class StoryChapter1Full(StoryChapterBase):
         return not part1._back_to_menu   # True = finished, False = went to menu
 
     def _play_part2(self, debate_score: int, resume_scene: int = 0):
-        """
-        Play Part 2 (CH002).
-        Returns True if finished normally, False if menu button hit.
-        """
+
         self._show_transition(
             "Chapter 1 – Part 2",
             "Independence Negotiations",
             duration_ms=2200,
         )
         part2 = StoryChapter1Part2(self.screen, self.clock, debate_score=debate_score)
-        # ── PROGRESSION: jump to saved scene ─────────────────────────────────
+
         if resume_scene > 0 and resume_scene < part2.total_slides:
             part2.dialogue_index = resume_scene
             part2._ensure_slide_assets(resume_scene)
-        # ─────────────────────────────────────────────────────────────────────
+
         part2.running       = True
         part2._back_to_menu = False
         while part2.running:
             for event in pygame.event.get():
                 part2.handle_event(event)
-            # ── PROGRESSION: auto-save as player moves ─────────────────────
+
             self._save(part=2, scene=part2.dialogue_index, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
             part2.update()
             part2.render()
             pygame.display.update()
@@ -742,29 +721,26 @@ class StoryChapter1Full(StoryChapterBase):
         return not part2._back_to_menu
 
     def _play_part3(self, debate_score: int, resume_scene: int = 0):
-        """
-        Play Part 3 (CH003).
-        Returns True if finished normally, False if menu button hit.
-        """
+
         self._show_transition(
             "Chapter 1 – Part 3",
             "Independence Day",
             duration_ms=2200,
         )
         part3 = StoryChapter1Part3(self.screen, self.clock, debate_score=debate_score)
-        # ── PROGRESSION: jump to saved scene ─────────────────────────────────
+
         if resume_scene > 0 and resume_scene < part3.total_slides:
             part3.dialogue_index = resume_scene
             part3._ensure_slide_assets(resume_scene)
-        # ─────────────────────────────────────────────────────────────────────
+
         part3.running       = True
         part3._back_to_menu = False
         while part3.running:
             for event in pygame.event.get():
                 part3.handle_event(event)
-            # ── PROGRESSION: auto-save as player moves ─────────────────────
+
             self._save(part=3, scene=part3.dialogue_index, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
             part3.update()
             part3.render()
             pygame.display.update()
@@ -772,18 +748,16 @@ class StoryChapter1Full(StoryChapterBase):
         return not part3._back_to_menu
 
     def run(self) -> str:
-        # ── PROGRESSION: load saved state ────────────────────────────────────
+
         saved            = self._load_saved()
         resume_part      = saved["current_part"]   # 1, 2, or 3
         resume_scene     = saved["current_scene"]  # dialogue_index
         self.total_debate_score = saved["score"]   # restore accumulated score
-        # ─────────────────────────────────────────────────────────────────────
 
-        # ════════════════ PART 1 ═════════════════════════════════════════════
         if resume_part <= 1:
-            # ── PROGRESSION: save entry into Part 1 ──────────────────────────
+
             self._save(part=1, scene=resume_scene, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
             finished = self._play_part1(resume_scene=resume_scene if resume_part == 1 else 0)
             if not finished:
                 # Player hit menu inside Part 1 — progress already auto-saved
@@ -791,44 +765,38 @@ class StoryChapter1Full(StoryChapterBase):
 
             score_1 = self._run_debate("The Debate Begins!")
             self.total_debate_score += score_1
-            # ── PROGRESSION: part 1 + debate done; save before moving on ─────
+
             self._save(part=2, scene=0, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
         else:
-            # Resuming past Part 1 — use the stored score
             score_1 = saved["score"]
 
-        # ════════════════ PART 2 ═════════════════════════════════════════════
         if resume_part <= 2:
             part2_scene = resume_scene if resume_part == 2 else 0
-            # ── PROGRESSION: save entry into Part 2 ──────────────────────────
+
             self._save(part=2, scene=part2_scene, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
             finished = self._play_part2(debate_score=score_1, resume_scene=part2_scene)
             if not finished:
                 return "menu"
 
             score_2 = self._run_debate("Final Debate – Convince the British!")
             self.total_debate_score += score_2
-            # ── PROGRESSION: part 2 + debate done; save before moving on ─────
+
             self._save(part=3, scene=0, status="In Progress")
-            # ─────────────────────────────────────────────────────────────────
+
         else:
-            # Resuming directly at Part 3 — derive score from save
+
             score_2 = saved["score"]
 
-        # ════════════════ PART 3 ═════════════════════════════════════════════
         part3_scene = resume_scene if resume_part == 3 else 0
-        # ── PROGRESSION: save entry into Part 3 ──────────────────────────────
-        self._save(part=3, scene=part3_scene, status="In Progress")
-        # ─────────────────────────────────────────────────────────────────────
+
+
         finished = self._play_part3(debate_score=score_2, resume_scene=part3_scene)
         if not finished:
             return "menu"
 
-        # ── PROGRESSION: entire chapter complete ─────────────────────────────
         self._save(part=3, scene=0, status="Completed")
-        # ─────────────────────────────────────────────────────────────────────
 
         self._show_transition(
             "Merdeka!",

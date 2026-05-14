@@ -3,8 +3,6 @@ import os
 from datetime import datetime
 import uuid
 
-# Extract all the data from database
-
 _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HIStory.db")
 
 def get_connection() -> sqlite3.Connection:
@@ -125,20 +123,6 @@ def grant_player_reward(player_reward_id: str, user_id: str, reward_id: str, qua
         )
         conn.commit()
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# PROGRESSION SAVE / LOAD  (new — all other functions above are untouched)
-#
-# Uses the existing `progress` table.
-# Two extra columns are added safely on first call via ALTER TABLE IF NOT EXISTS:
-#   current_part  INTEGER  — which story part: 1=CH001, 2=CH002, 3=CH003
-#   current_scene INTEGER  — dialogue_index within that part (0-based)
-#
-# One progress row per (user_id, chapter_id="STORY_CH1") tracks the whole arc.
-# This keeps the schema compatible with the per-chapter rows already in the DB.
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Logical chapter_id used in the progress table for the full story arc
 _STORY_CHAPTER_ID = "STORY_CH1"
 
 
@@ -165,9 +149,9 @@ def _ensure_story_progress_columns():
 
 def save_story_progress(
     user_id: str,
-    current_part: int,      # 1, 2, or 3
-    current_scene: int,     # dialogue_index within the current part
-    status: str,            # "In Progress" or "Completed"
+    current_part: int,     
+    current_scene: int,  
+    status: str,         
     score: int = 0,
 ):
     """

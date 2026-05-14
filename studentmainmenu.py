@@ -296,16 +296,8 @@ def launch_story():
     if chapter_class is None:
         _show_coming_soon()
         return
-
-    # ── PROGRESSION: pass the logged-in user's ID so progress can be saved ──
+    
     chapter_class(screen, clock, user_id=CURRENT_USER_ID).run()
-    # Progress is saved automatically inside the chapter.
-    # Returning here means the player either:
-    #   a) Finished the chapter (Completed saved), or
-    #   b) Hit the Menu button (In Progress saved at exact scene).
-    # Either way we simply drop back to the main menu loop below.
-    # ─────────────────────────────────────────────────────────────────────────
-
 
 def _show_coming_soon():
     ovf   = pygame.font.SysFont("Arial", int(screen_height * 0.06), bold=True)
