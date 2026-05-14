@@ -8,6 +8,7 @@ from change_pw_popup import run_change_pw_popup
 from user_profile import ProfilePicture
 from arrow_button import Arrow_Button
 from queries import *
+from tooltip import draw_tooltip
 # color code
 black         = (40, 40, 40)
 white         = (255, 255, 255)
@@ -42,14 +43,14 @@ change_password = Button("Change Password",
                          font_size = int(screen_height * 0.03),
                          font_color = white)
 
-classroom_box = Box(x = int(screen_width *0.05),
-                    y = int(screen_height * 0.53),
+classroom_box = Box(x = int(screen_width * 0.05),
+                    y = int(screen_height * 0.515),
                     w = int(screen_width * 0.25),
                     h = int(screen_height * 0.15))
 
 join_class_btn = Button("Join Class", 
                         x = btn_x,
-                        y = int(screen_height * 0.62),
+                        y = int(screen_height * 0.61),
                         w = btn_w,
                         h = int(classroom_box.height * 0.25),
                         color = button_yellow,
@@ -59,6 +60,22 @@ join_class_btn = Button("Join Class",
                         border_w = 3,
                         font_size = int(screen_height * 0.03),
                         font_color = white)
+
+power_up_box = Box(x = int(screen_width * 0.05),
+                   y = int(screen_height * 0.69),
+                   w = int(screen_width * 0.25),
+                   h = int(screen_height * 0.28))
+
+def make_grayscale(surface):
+    gray = pygame.Surface(surface.get_size(), flags=pygame.SRCALPHA)
+    for x in range(surface.get_width()):
+        for y in range(surface.get_height()):
+            r, g, b, a = surface.get_at((x, y))
+            avg = (r + g + b) // 3
+            gray.set_at((x, y), (avg, avg, avg, a))
+    return gray
+
+
 
 def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()
@@ -91,13 +108,18 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
     classroom_box.draw_box(screen)
     join_class_btn.draw(screen)
     change_password.draw(screen)
+    power_up_box.draw_box(screen)
+    draw_text("Power Ups", 
+              x = power_up_box.Rect.centerx,
+              y = int(screen_height * 0.72),
+              size= int(screen_height *.03),
+              anchor="center")
     
     draw_text("Joined Class",
               x = classroom_box.Rect.centerx,
-              y = int(screen_height * 0.55),
+              y = int(screen_height * 0.54),
               size = int(screen_height * 0.03),
               anchor = "center")
-    
     
     if not joined_class:
         join_class_btn.color = button_yellow
@@ -105,7 +127,7 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
         join_class_btn.hover_color = active_yellow
         draw_text("No class Joined",
               x = classroom_box.Rect.centerx,
-              y = int(screen_height * 0.59),
+              y = int(screen_height * 0.58),
               size = int(screen_height * 0.04),
               anchor = "center")
     else:
@@ -115,11 +137,47 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
         class_name = get_class_name(classroom)
         draw_text(class_name,
               x = classroom_box.Rect.centerx,
-              y = int(screen_height * 0.59),
+              y = int(screen_height * 0.58),
               size = int(screen_height * 0.04),
               anchor = "center")
     just_opened = False
     just_opened_pw = False
+    
+    all_rewards = get_all_rewards()
+    owned = get_player_rewards()
+
+    slot_size = int(screen_height * 0.08)
+    gap = int(screen_height * 0.06)
+    start_x = power_up_box.Rect.x + int(screen_width * 0.02)
+    start_y = power_up_box.Rect.y + int(screen_height * 0.05)
+    mouse_pos = pygame.mouse.get_pos()
+    cols = 3  # how many per row, adjust to fit your box
+    hovered_tooltip = None
+
+    for i, (reward_id, name, desc,type, pic) in enumerate(all_rewards):
+        col = i % cols
+        row = i // cols
+        
+        x = start_x + col * (slot_size + gap)
+        y = start_y + row * (slot_size + gap)
+
+        img = pygame.image.load(pic).convert_alpha()
+        img = pygame.transform.scale(img, (slot_size, slot_size))
+
+        qty = owned.get(reward_id, 0)  # 0 if player doesn't own it
+
+        if qty == 0:
+            img = make_grayscale(img)  # gray out if not owned
+
+        rect = pygame.Rect(x, y, slot_size, slot_size)
+        screen.blit(img, rect)
+        
+        if rect.collidepoint(mouse_pos):
+            hovered_tooltip = (name, desc, qty, x, y)
+    if hovered_tooltip:
+        name, desc, qty, x, y = hovered_tooltip
+        tx = max(x, power_up_box.Rect.x + int(screen_width * 0.15)) 
+        draw_tooltip(screen, f"{name}\n{desc}\nAmount Owned: {qty}\nUsed in: {type}", (tx, y))
 
     for event in events: 
         profile_pic.handle_event(event)
@@ -130,13 +188,13 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
         if change_password.is_clicked(event):
             just_opened_pw = True
             show_change_pw_popup = True
-        
+            
     if show_join_class_popup and not just_opened:
         result = join_class_popup(events)
         if result == "exit":
             show_join_class_popup = False
         elif result and result != "exit":
-            status = join_class(result)  # ← call the query
+            status = join_class(result)
             if status == "success":
                 show_join_class_popup = False  # close popup
                 popup_state["error_msg"] = "Class joined successfully"

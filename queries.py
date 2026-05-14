@@ -106,13 +106,12 @@ def get_otp(user_email):
         user_id = session.current_user["user_id"]
         cursor.execute('SELECT otp_code, otp_created_at FROM user WHERE email = ? AND user_id = ?', (user_email, user_id))
         result = cursor.fetchone()
-        print(f"get_otp result for {user_email}: {result}")
+        
         return result
     except Exception as e:
         print(f"Error getting OTP: {e}")
         return None
     
-        
 def save_new_pw(new_password):
     try:
         user_id = session.current_user["user_id"]
@@ -123,3 +122,19 @@ def save_new_pw(new_password):
         print(f"Error saving new password: {e}")
         return False
     
+def get_all_rewards():
+    try:
+        cursor.execute('SELECT * FROM reward')
+        return cursor.fetchall()
+    except Exception as e:
+        print(f"Error getting all rewards: {e}")
+        
+def get_player_rewards():
+    user_id = session.current_user["user_id"]
+    try:
+        cursor.execute('SELECT reward_id, quantity FROM player_reward WHERE user_id = ?', (user_id,))
+        result = cursor.fetchall()
+        return {row[0]: row[1] for row in result}  # {"R001": 2, "R004": 1, ...}
+    except Exception as e:
+        print(f"Error getting user rewards: {e}")
+        return {}
