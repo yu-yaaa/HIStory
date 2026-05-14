@@ -1,7 +1,9 @@
 import sqlite3
 import os
+from datetime import datetime
+import uuid
 
-#Extract all the data from database
+# Extract all the data from database
 
 _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HIStory.db")
 
@@ -23,7 +25,7 @@ def fetch_chapter(chapter_id: str):
         return conn.execute(
             "SELECT * FROM chapter WHERE chapter_id = ?", (chapter_id,)
         ).fetchone()
-    
+
 def fetch_backgrounds_for_chapter(chapter_id: str) -> list:
     with get_connection() as conn:
         return conn.execute(
@@ -82,7 +84,7 @@ def fetch_rewards_by_type(reward_type: str) -> list:
             "SELECT * FROM reward WHERE reward_type = ? OR reward_type = 'both'",
             (reward_type,)
         ).fetchall()
-    
+
 def fetch_progress(user_id: str, chapter_id: str):
     with get_connection() as conn:
         return conn.execute(
@@ -105,7 +107,6 @@ def save_minigame_result(
     status: str,
     played_at: str,
 ):
-    
     with get_connection() as conn:
         conn.execute(
             """
@@ -123,3 +124,115 @@ def grant_player_reward(player_reward_id: str, user_id: str, reward_id: str, qua
             (player_reward_id, user_id, reward_id, quantity, quantity),
         )
         conn.commit()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PROGRESSION SAVE / LOAD  (new — all other functions above are untouched)
+#
+# Uses the existing `progress` table.
+# Two extra columns are added safely on first call via ALTER TABLE IF NOT EXISTS:
+#   current_part  INTEGER  — which story part: 1=CH001, 2=CH002, 3=CH003
+#   current_scene INTEGER  — dialogue_index within that part (0-based)
+#
+# One progress row per (user_id, chapter_id="STORY_CH1") tracks the whole arc.
+# This keeps the schema compatible with the per-chapter rows already in the DB.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Logical chapter_id used in the progress table for the full story arc
+_STORY_CHAPTER_ID = "STORY_CH1"
+
+
+def _ensure_story_progress_columns():
+    """
+    Add current_part and current_scene columns to progress if they don't exist.
+    Safe to call on every app start — ALTER TABLE is skipped if cols exist.
+    """
+    with get_connection() as conn:
+        existing = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(progress)").fetchall()
+        }
+        if "current_part" not in existing:
+            conn.execute(
+                "ALTER TABLE progress ADD COLUMN current_part INTEGER DEFAULT 1"
+            )
+        if "current_scene" not in existing:
+            conn.execute(
+                "ALTER TABLE progress ADD COLUMN current_scene INTEGER DEFAULT 0"
+            )
+        conn.commit()
+
+
+def save_story_progress(
+    user_id: str,
+    current_part: int,      # 1, 2, or 3
+    current_scene: int,     # dialogue_index within the current part
+    status: str,            # "In Progress" or "Completed"
+    score: int = 0,
+):
+    """
+    Upsert a single progress row for the entire story arc.
+    Called every time the player advances or leaves.
+    """
+    _ensure_story_progress_columns()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    with get_connection() as conn:
+        existing = conn.execute(
+            "SELECT progress_id, attempts_count FROM progress "
+            "WHERE user_id = ? AND chapter_id = ?",
+            (user_id, _STORY_CHAPTER_ID),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                """
+                UPDATE progress
+                   SET status        = ?,
+                       current_part  = ?,
+                       current_scene = ?,
+                       score         = ?,
+                       last_accessed = ?
+                 WHERE user_id = ? AND chapter_id = ?
+                """,
+                (status, current_part, current_scene, score,
+                 now, user_id, _STORY_CHAPTER_ID),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO progress
+                    (progress_id, user_id, chapter_id, status,
+                     last_accessed, attempts_count, score,
+                     current_part, current_scene)
+                VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+                """,
+                (str(uuid.uuid4()), user_id, _STORY_CHAPTER_ID,
+                 status, now, score, current_part, current_scene),
+            )
+        conn.commit()
+
+
+def get_story_progress(user_id: str) -> dict:
+    """
+    Return the saved story progress for user_id as a plain dict, or None.
+
+    Keys: status, current_part, current_scene, score
+    """
+    _ensure_story_progress_columns()
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT status, current_part, current_scene, score "
+            "FROM progress WHERE user_id = ? AND chapter_id = ?",
+            (user_id, _STORY_CHAPTER_ID),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    return {
+        "status":        row["status"]        or "Not Started",
+        "current_part":  row["current_part"]  or 1,
+        "current_scene": row["current_scene"] or 0,
+        "score":         row["score"]         or 0,
+    }

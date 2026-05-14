@@ -2,7 +2,7 @@ import pygame
 import os
 from sys import exit
 
-CURRENT_USER_ID = "USR007"  #replace with  studentid
+CURRENT_USER_ID = "USR007"  # replace with logged-in student id
 
 from database import fetch_all_chapters, fetch_character
 from studentstoryline import get_chapter_class
@@ -20,16 +20,18 @@ def asset_path(relative: str) -> str:
     if os.path.isfile(relative):
         return relative
     full = os.path.join(PROJECT_ROOT, relative)
-    return full  
+    return full
 
 logo = pygame.image.load(asset_path("Assets/icons/HIStory Logo.png")).convert_alpha()
 bg   = pygame.image.load(asset_path("Assets/background/Main Menu background.png")).convert()
 
 screen_width, screen_height = screen.get_size()
 
-font       = pygame.font.SysFont("Jersey10-Regular.ttf", int(screen_height * 0.038))
-name_font  = pygame.font.SysFont("Jersey10-Regular.ttf", int(screen_height * 0.022), bold=True)
-story_font = pygame.font.SysFont("Jersey10-Regular.ttf", int(screen_height * 0.018))
+FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
+
+font = pygame.font.Font(FONT_PATH, int(screen_height * 0.038))
+name_font = pygame.font.Font(FONT_PATH, int(screen_height * 0.022))
+story_font = pygame.font.Font(FONT_PATH, int(screen_height * 0.018))
 bg_scaled  = pygame.transform.scale(bg, (screen_width, screen_height))
 
 logo_height = int(screen_height * 0.18)
@@ -180,19 +182,15 @@ char_images = []
 for entry in CHARACTERS:
     loaded = False
     if entry.get("asset") and not entry.get("locked", False):
-        # Resolve path relative to project root so it works from any cwd
         resolved = asset_path(entry["asset"])
         print(f"[carousel] loading character: {resolved}  exists={os.path.isfile(resolved)}")
         try:
             img = pygame.image.load(resolved).convert_alpha()
-
-            # Preserve aspect ratio (no stretching)
             orig_w, orig_h = img.get_size()
             scale_factor = char_h / orig_h
             new_w = int(orig_w * scale_factor)
             new_h = char_h
-
-            img = pygame.transform.scale(img, (new_w, new_h))  # better for pixel art
+            img = pygame.transform.scale(img, (new_w, new_h))
             char_images.append(img)
             loaded = True
             print(f"[carousel] OK — character image loaded")
@@ -201,6 +199,7 @@ for entry in CHARACTERS:
     if not loaded:
         print(f"[carousel] using placeholder for entry: {entry.get('name')}")
         char_images.append(make_placeholder())
+
 
 def draw_buttons(mouse_pos):
     locked = CHARACTERS[current_character].get("locked", False)
@@ -261,14 +260,12 @@ def draw_carousel(mouse_pos):
     locked = entry.get("locked", False)
 
     img = char_images[current_character]
-
     img_rect = img.get_rect(
         midbottom=(
             panel_x + panel_w // 2 - int(screen_width * 0.04),
             pedestal_y
         )
     )
-
     screen.blit(img, img_rect)
 
     if locked:
@@ -300,7 +297,14 @@ def launch_story():
         _show_coming_soon()
         return
 
-    chapter_class(screen, clock).run()
+    # ── PROGRESSION: pass the logged-in user's ID so progress can be saved ──
+    chapter_class(screen, clock, user_id=CURRENT_USER_ID).run()
+    # Progress is saved automatically inside the chapter.
+    # Returning here means the player either:
+    #   a) Finished the chapter (Completed saved), or
+    #   b) Hit the Menu button (In Progress saved at exact scene).
+    # Either way we simply drop back to the main menu loop below.
+    # ─────────────────────────────────────────────────────────────────────────
 
 
 def _show_coming_soon():
@@ -327,6 +331,7 @@ def _show_coming_soon():
                          screen_height // 2 + int(screen_height * 0.02)))
         pygame.display.update()
         clock.tick(60)
+
 
 running = True
 
