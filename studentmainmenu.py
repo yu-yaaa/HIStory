@@ -1,6 +1,7 @@
 import pygame
 import os
 from sys import exit
+from progress_tracking import main as launch_progress_tracking
 import session
 CURRENT_USER_ID = session.current_user["user_id"]
 
@@ -339,7 +340,6 @@ def run_student_mainmenu(events):
     mouse_pos = pygame.mouse.get_pos()
     
     for event in events:
-
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for btn in buttons:
                 if btn["rect"].collidepoint(event.pos):
@@ -350,16 +350,19 @@ def run_student_mainmenu(events):
                         launch_story()
                     if btn["label"] == "Player Profile":
                         return "profile"
+                    
+                    # --- DIRECT REDIRECT LOGIC ---
                     if btn["label"] == "Progress Track":
-                        return "progress"
+                        launch_progress_tracking()
+
 
             if left_arrow.collidepoint(event.pos):
                 current_character[0] = (current_character[0] - 1) % len(CHARACTERS)
             if right_arrow.collidepoint(event.pos):
                 current_character[0] = (current_character[0] + 1) % len(CHARACTERS)
-   
 
-    screen.blit(bg_scaled,   (0, 0))
+    # --- DRAWING CODE ---
+    screen.blit(bg_scaled, (0, 0))
     screen.blit(logo_scaled, (int(screen_width * 0.02), int(screen_height * 0.02)))
     draw_buttons(mouse_pos)
     draw_carousel(mouse_pos)

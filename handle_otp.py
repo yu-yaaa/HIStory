@@ -26,7 +26,7 @@ def send_email(receiver_email):
     subject = "HIStory - Your Password Reset OTP"
     body = f"""
     Hello!
-
+    
     Your OTP code for resetting your password is:
 
             {otp}
