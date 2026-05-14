@@ -175,7 +175,7 @@ def run_change_pw_popup(events):
     if popup_state["error_msg"]:
                   draw_text(popup_state["error_msg"],
                         x = int(screen_width * 0.31),
-                        y = int(screen_height * 0.575),
+                        y = int(screen_height * 0.62),
                         colour = border_red,
                         size = int(screen_height * 0.025))
     
