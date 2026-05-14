@@ -1,5 +1,9 @@
 import sqlite3
 import os
+from datetime import datetime
+import uuid
+
+#Extract all the data from database
 
 _DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "HIStory.db")
 
@@ -118,6 +122,203 @@ def save_minigame_result(
 def grant_player_reward(player_reward_id: str, user_id: str, reward_id: str, quantity: int = 1):
     with get_connection() as conn:
         conn.execute(
+            """
+            INSERT INTO player_reward (player_reward_id, user_id, reward_id, quantity)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(player_reward_id) DO UPDATE SET quantity = quantity + ?
+            """,
             (player_reward_id, user_id, reward_id, quantity, quantity),
+        )
+        conn.commit()
+
+def create_progress_table_columns():
+    """
+    Adds extra progression columns if they do not exist.
+    Safe to run multiple times.
+    """
+
+    with get_connection() as conn:
+        cursor = conn.cursor()
+
+        existing_columns = [
+            row["name"]
+            for row in cursor.execute("PRAGMA table_info(progress)").fetchall()
+        ]
+
+        if "current_part" not in existing_columns:
+            cursor.execute("""
+                ALTER TABLE progress
+                ADD COLUMN current_part INTEGER DEFAULT 1
+            """)
+
+        if "current_scene" not in existing_columns:
+            cursor.execute("""
+                ALTER TABLE progress
+                ADD COLUMN current_scene INTEGER DEFAULT 0
+            """)
+
+        if "debate_score_1" not in existing_columns:
+            cursor.execute("""
+                ALTER TABLE progress
+                ADD COLUMN debate_score_1 INTEGER DEFAULT 0
+            """)
+
+        if "debate_score_2" not in existing_columns:
+            cursor.execute("""
+                ALTER TABLE progress
+                ADD COLUMN debate_score_2 INTEGER DEFAULT 0
+            """)
+
+        conn.commit()
+
+
+def get_story_progress(user_id: str):
+    with get_connection() as conn:
+        return conn.execute(
+            """
+            SELECT *
+            FROM progress
+            WHERE user_id = ?
+            ORDER BY last_accessed DESC
+            LIMIT 1
+            """,
+            (user_id,)
+        ).fetchone()
+
+
+def save_story_progress(
+    user_id: str,
+    chapter_id: str,
+    current_part: int,
+    current_scene: int,
+    status: str,
+    score: int = 0,
+    debate_score_1: int = 0,
+    debate_score_2: int = 0,
+):
+    """
+    Auto save story progression including debate scores.
+    """
+
+    create_progress_table_columns()
+
+    with get_connection() as conn:
+
+        existing = conn.execute(
+            """
+            SELECT progress_id
+            FROM progress
+            WHERE user_id = ? AND chapter_id = ?
+            """,
+            (user_id, chapter_id),
+        ).fetchone()
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        if existing:
+            conn.execute(
+                """
+                UPDATE progress
+                SET
+                    status        = ?,
+                    current_part  = ?,
+                    current_scene = ?,
+                    score         = ?,
+                    debate_score_1 = ?,
+                    debate_score_2 = ?,
+                    last_accessed = ?
+                WHERE progress_id = ?
+                """,
+                (
+                    status,
+                    current_part,
+                    current_scene,
+                    score,
+                    debate_score_1,
+                    debate_score_2,
+                    now,
+                    existing["progress_id"],
+                ),
+            )
+        else:
+            conn.execute(
+                """
+                INSERT INTO progress
+                (
+                    progress_id,
+                    user_id,
+                    chapter_id,
+                    status,
+                    last_accessed,
+                    attempts_count,
+                    score,
+                    current_part,
+                    current_scene,
+                    debate_score_1,
+                    debate_score_2
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    user_id,
+                    chapter_id,
+                    status,
+                    now,
+                    1,
+                    score,
+                    current_part,
+                    current_scene,
+                    debate_score_1,
+                    debate_score_2,
+                ),
+            )
+
+        conn.commit()
+
+
+def load_story_progress(user_id: str, chapter_id: str) -> dict:
+    """
+    Load saved progression for a user+chapter.
+    Returns a dict with keys: current_part, current_scene, score,
+    debate_score_1, debate_score_2, status.
+    Returns None if no saved progress exists.
+    """
+    create_progress_table_columns()
+
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM progress
+            WHERE user_id = ? AND chapter_id = ?
+            """,
+            (user_id, chapter_id),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    # sqlite3.Row doesn't always expose new ALTERed columns cleanly,
+    # so we use dict() and provide safe defaults.
+    row_dict = dict(row)
+    return {
+        "current_part":   row_dict.get("current_part",   1),
+        "current_scene":  row_dict.get("current_scene",  0),
+        "score":          row_dict.get("score",          0),
+        "debate_score_1": row_dict.get("debate_score_1", 0),
+        "debate_score_2": row_dict.get("debate_score_2", 0),
+        "status":         row_dict.get("status",         "In Progress"),
+    }
+
+
+def clear_story_progress(user_id: str, chapter_id: str):
+    with get_connection() as conn:
+        conn.execute(
+            """
+            DELETE FROM progress
+            WHERE user_id = ? AND chapter_id = ?
+            """,
+            (user_id, chapter_id),
         )
         conn.commit()

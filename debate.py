@@ -2,8 +2,17 @@ import pygame
 import sys
 import math
 import random
+import os
 
 from database import fetch_rewards_by_type
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+def asset_path(relative: str):
+    return os.path.join(PROJECT_ROOT, relative)
+
+FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
+
 
 class AnswerOption:
     def __init__(self, text: str, score: int):
@@ -24,6 +33,7 @@ class DebateRound:
         self.answers      = answers or []
         self.is_narrative = is_narrative
 
+
 class PowerUp:
     def __init__(self, db_row):
         self.reward_id   = db_row["reward_id"]
@@ -42,8 +52,8 @@ class PowerUp:
         except Exception:
             self.icon = None
 
-DEBATE_ROUNDS: "list[DebateRound]" = [
 
+DEBATE_ROUNDS: "list[DebateRound]" = [
     DebateRound(
         speaker="Narrator",
         dialogue=(
@@ -238,6 +248,7 @@ ANS_COLORS = [
 
 POWERUP_STREAK_THRESHOLD = 3
 
+
 class DebateGame:
     _NOTIFY_DURATION = 180
 
@@ -268,6 +279,8 @@ class DebateGame:
 
         self._load_round(0)
 
+    # ── POWERUP SYSTEM ───────────────────────────────────────────────────────
+
     def _init_powerup_system(self):
         self._correct_streak       = 0
         self._inventory: list[PowerUp] = []
@@ -296,24 +309,26 @@ class DebateGame:
                 self._powerup_notify_text  = f"⚡ Power-up earned: {awarded.name}!"
                 self._powerup_notify_timer = self._NOTIFY_DURATION
 
+    # ─────────────────────────────────────────────────────────────────────────
+
     def _init_fonts(self):
-        self.font_title   = pygame.font.SysFont("Georgia", int(self.H * 0.038), bold=True)
-        self.font_speaker = pygame.font.SysFont("Georgia", int(self.H * 0.028), bold=True)
-        self.font_body    = pygame.font.SysFont("Arial",   int(self.H * 0.020))
-        self.font_answer  = pygame.font.SysFont("Arial",   int(self.H * 0.018))
-        self.font_small   = pygame.font.SysFont("Arial",   int(self.H * 0.015))
-        self.font_score   = pygame.font.SysFont("Georgia", int(self.H * 0.055), bold=True)
-        self.font_hud     = pygame.font.SysFont("Arial",   int(self.H * 0.019), bold=True)
+        self.font_title   = pygame.font.Font(FONT_PATH, int(self.H * 0.038))
+        self.font_speaker = pygame.font.Font(FONT_PATH, int(self.H * 0.028))
+        self.font_body    = pygame.font.Font(FONT_PATH, int(self.H * 0.020))
+        self.font_answer  = pygame.font.Font(FONT_PATH, int(self.H * 0.018))
+        self.font_small   = pygame.font.Font(FONT_PATH, int(self.H * 0.015))
+        self.font_score   = pygame.font.Font(FONT_PATH, int(self.H * 0.055))
+        self.font_hud     = pygame.font.Font(FONT_PATH, int(self.H * 0.019))
 
     def _load_assets(self):
         try:
-            raw     = pygame.image.load("Assets/background/debate.png").convert()
+            raw     = pygame.image.load(asset_path("Assets/background/debate.png")).convert()
             self.bg = pygame.transform.scale(raw, (self.W, self.H))
         except Exception:
             self.bg = None
 
         try:
-            raw = pygame.image.load("Assets/characters/CR001.png").convert_alpha()
+            raw = pygame.image.load(asset_path("Assets/characters/CR001.png")).convert_alpha()
             h = int(self.H * 0.50)
             w = int(h * 0.55)
             self.char_left = pygame.transform.smoothscale(raw, (w, h))
@@ -550,7 +565,7 @@ class DebateGame:
             self.screen.fill(CLR_BG)
 
     def _draw_title(self):
-        text   = "Chapter 2  ·  The Road to Merdeka Debate"
+        text   = "Chapter 1  ·  The Road to Merdeka Debate"
         surf   = self.font_title.render(text, True, CLR_GOLD)
         shadow = self.font_title.render(text, True, (100, 65, 0))
         x = self.W // 2 - surf.get_width() // 2
@@ -585,7 +600,7 @@ class DebateGame:
         )
 
         streak_txt = self.font_small.render(
-            f"🔥 Streak: {self._correct_streak} / {POWERUP_STREAK_THRESHOLD}",
+            f"Streak: {self._correct_streak} / {POWERUP_STREAK_THRESHOLD}",
             True, CLR_GOLD,
         )
         self.screen.blit(
@@ -835,6 +850,7 @@ class DebateGame:
             (self.W // 2 - hint.get_width() // 2, self.H - int(self.H * 0.024)),
         )
 
+
 if __name__ == "__main__":
     pygame.init()
     info   = pygame.display.Info()
@@ -842,12 +858,12 @@ if __name__ == "__main__":
         (info.current_w, info.current_h),
         pygame.FULLSCREEN | pygame.NOFRAME,
     )
-    pygame.display.set_caption("HIStory – Chapter 2 Debate (standalone test)")
+    pygame.display.set_caption("HIStory – Debate (standalone test)")
     clock = pygame.time.Clock()
 
     game  = DebateGame(screen, clock)
     score = game.run()
-    print(f"[DebateGame] Chapter 2 complete. Final debate score: {score}")
+    print(f"[DebateGame] Complete. Final debate score: {score}")
 
     pygame.quit()
     sys.exit()
