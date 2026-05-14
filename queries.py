@@ -39,6 +39,20 @@ def generate_user_id():
     
     return f"USR{new_num:03d}"
 
+
+def add_user_progress():
+    user_id = session.current_user["user_id"]
+    cursor.execute('SELECT chapter_id FROM chapter ORDER BY chapter_order')
+    
+    for i, (chapter_id) in enumerate:
+        cursor.execute("SELECT COUNT(*) FROM progress")
+        count = cursor.fetchone()[0]
+        progress_id = f"P{str(count + 1).zfill(3)}"
+        
+        status = "Unlocked" if i == 0 else "Locked"
+        cursor.execute('INSERT INTO progress (progress_id, user_id, chapter_id, status, last_accessed, attempts_count, score) VALUES (?,?,?,?,?,?,?)', 
+                       (progress_id, user_id, chapter_id, status, datetime.now()))
+        
 def register_user(email, username, pw, role):
     try:
         new_id = generate_user_id()
