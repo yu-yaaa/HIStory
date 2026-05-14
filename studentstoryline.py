@@ -620,9 +620,14 @@ class StoryChapter1Full(StoryChapterBase):
         """
         Return the saved progress dict, or a default that starts from the beginning.
         Keys: current_part (1/2/3), current_scene (0-based), score, status
+        If the chapter was previously Completed, reset to the beginning so the
+        student can replay from Chapter 1 Part 1.
         """
         saved = get_story_progress(self._user_id)
         if saved is None:
+            return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
+        # Completed → restart from the very beginning (replay)
+        if saved["status"] == "Completed":
             return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
         return saved
 
