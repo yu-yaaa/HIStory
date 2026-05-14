@@ -1,5 +1,5 @@
 import pygame
-from queries import register_user
+from queries import register_user,add_user_progress
 from conn import cursor
 from text_field import TextInput    # import text field for user input
 from button_class import Button # Import button class to create button
@@ -235,7 +235,9 @@ def run_register(events):    # function to draw everything needed for register p
                     role = register_state["selected_role"].lower()
                     success, result = register_user(email, username, password, role)
                     if success:
+                        add_user_progress()
                         return "login"
                     else:
                         register_state["error_message"] = result
                         
+        
