@@ -14,9 +14,11 @@ students             = []
 classroom_name_to_id = {}
 SCROLL_SPEED         = 20
 initialized_for = None
+sort_dropdown = None
+last_sort = "Default"
 
 def init(screen):
-    global font, class_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected
+    global font, class_dropdown, sort_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected
 
     current_user_id = session.current_user["user_id"]
     if initialized_for == current_user_id:
@@ -44,6 +46,17 @@ def init(screen):
         text_color=(255, 255, 255),
         hover_color="#347ED9",
     )
+
+    sort_dropdown = Dropdown(
+            int(screen.get_width() * 0.08) + 280,  # ← next to class dropdown
+            int(screen.get_height() * 0.27),
+            220, 50,
+            ["Default", "Highest Progress", "Lowest Progress", "Highest Attention", "Lowest Attention"],
+            bg_color="#539CF5",
+            border_color="#1B1F5B",
+            text_color=(255, 255, 255),
+            hover_color="#347ED9",
+        ) 
 
     flag_img = pygame.image.load("Assets/flag_deco.png").convert_alpha()
     flag_img = pygame.transform.scale(flag_img, (screen.get_width(), flag_img.get_height()))
@@ -240,6 +253,18 @@ def draw_stud_manage(screen, events):
     classroom_id = "All" if selected == "All" else classroom_name_to_id.get(selected, "All")
     students = get_students_by_classroom(classroom_id, session.current_user["user_id"])  #pass teacher_id
 
+    #sort by dropdown
+    sort_selected = sort_dropdown.selected
+    if sort_selected == "Highest Progress":
+        students.sort(key=lambda s: s["progress"], reverse=True)
+    elif sort_selected == "Lowest Progress":
+        students.sort(key=lambda s: s["progress"])
+    elif sort_selected == "Highest Attention":
+        students.sort(key=lambda s: s["attention"], reverse=True)
+    elif sort_selected == "Lowest Attention":
+        students.sort(key=lambda s: s["attention"])
+    #default - no sorting
+
     # scrollable card area
     cards_start_x = int(screen.get_width() * 0.12)
     cards_start_y = int(screen.get_height() * 0.38)
@@ -257,11 +282,13 @@ def draw_stud_manage(screen, events):
                   (255, 255, 255), size=32, anchor="center")
     
     class_dropdown.draw(screen)
+    sort_dropdown.draw(screen)
 
     # events — back button and dropdown
     for event in events:
         if back_btn.is_clicked(event):
             return "dashboard"
         class_dropdown.handle_event(event)
+        sort_dropdown.handle_event(event)
 
     return None

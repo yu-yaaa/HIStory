@@ -6,7 +6,7 @@ import session
 
 #temp hardcode
 session.current_user = {
-    "user_id": "USR002"
+    "user_id": "USR001"
 }
 
 if session.current_user["user_id"] is None:
