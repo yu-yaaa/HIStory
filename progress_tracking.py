@@ -1,6 +1,7 @@
 import pygame
 import sqlite3
 import os
+import session
 
 # --- Configuration & Initialization ---
 pygame.init()
@@ -165,7 +166,7 @@ def draw_ui(stats):
     return exit_rect
 
 def main():
-    user_id = "USR003"
+    user_id = session.current_user["user_id"]
     user_stats = get_user_progress(user_id) 
     clock = pygame.time.Clock()
     running = True

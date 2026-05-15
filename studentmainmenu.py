@@ -31,9 +31,11 @@ def asset_path(relative: str) -> str:
 logo = pygame.image.load(asset_path("Assets/icons/HIStory Logo.png")).convert_alpha()
 bg   = pygame.image.load(asset_path("Assets/background/Main Menu background.png")).convert()
 
-font       = pygame.font.SysFont("Arial", int(screen_height * 0.038))
-name_font  = pygame.font.SysFont("Arial", int(screen_height * 0.022), bold=True)
-story_font = pygame.font.SysFont("Arial", int(screen_height * 0.018))
+FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
+
+font = pygame.font.Font(FONT_PATH, int(screen_height * 0.038))
+name_font = pygame.font.Font(FONT_PATH, int(screen_height * 0.022))
+story_font = pygame.font.Font(FONT_PATH, int(screen_height * 0.018))
 bg_scaled  = pygame.transform.scale(bg, (screen_width, screen_height))
 
 logo_height = int(screen_height * 0.18)
@@ -49,21 +51,12 @@ _db_chapters = fetch_all_chapters()
 
 def _build_carousel_entries():
     entries = []
+    carousel_index = 0
 
-    for carousel_index, chapter in enumerate(_db_chapters):
-        ch_id  = chapter["chapter_id"]
-        
-        # if chapter has no character mapped, treat it as locked
+    for chapter in _db_chapters:
+        ch_id = chapter["chapter_id"]
+
         if ch_id not in CHAPTER_CHARACTER_MAP:
-            entries.append({
-                "chapter_id":    ch_id,
-                "chapter_order": chapter["chapter_order"],
-                "name":          "Coming Soon",
-                "story":         chapter["title"],
-                "description":   chapter["description"],
-                "asset":         None,
-                "locked":        True,
-            })
             continue
 
         has_class = get_chapter_class(carousel_index) is not None
@@ -72,7 +65,11 @@ def _build_carousel_entries():
         if not locked:
             char_row  = fetch_character(CHAPTER_CHARACTER_MAP[ch_id])
             char_name = char_row["name"] if char_row else chapter["title"]
-            asset     = f"Assets/characters/{char_row['character_id']}.png" if char_row else None
+            if char_row:
+                char_id = char_row["character_id"]
+                asset = f"Assets/characters/{char_id}.png"
+            else:
+                asset = None
         else:
             char_name = "Coming Soon"
             asset     = None
@@ -86,6 +83,8 @@ def _build_carousel_entries():
             "asset":         asset,
             "locked":        locked,
         })
+
+        carousel_index += 1
 
     return entries
 
@@ -187,7 +186,6 @@ char_images = []
 for entry in CHARACTERS:
     loaded = False
     if entry.get("asset") and not entry.get("locked", False):
-        # Resolve path relative to project root so it works from any cwd
         resolved = asset_path(entry["asset"])
         print(f"[carousel] loading character: {resolved}  exists={os.path.isfile(resolved)}")
         try:
@@ -306,8 +304,8 @@ def launch_story():
     if chapter_class is None:
         _show_coming_soon()
         return
-
-    chapter_class(screen, clock).run()
+    
+    chapter_class(screen, clock, user_id=CURRENT_USER_ID).run()
 
 
 def _show_coming_soon():

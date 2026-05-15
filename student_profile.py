@@ -113,7 +113,14 @@ def draw_progress_bar():
     draw_text(f"Progress Bar: Chapter {complete} out of {total}", x = int(screen_width* 0.33), y = int(screen_height *0.125), size = int(screen_height * 0.04))
     draw_text(f"{pct}%", int(screen_width* 0.6), int(screen_height * 0.22),size= int(screen_height * 0.03), anchor = "center")
 
-
+def score_and_feedback():
+    quiz_box = Box(x = int(screen_width * 0.32),
+               y = int(screen_height * 0.3),
+               w = int(screen_width * 0.65),
+               h = int(screen_height * 0.66))
+    quiz_box.draw_box(screen)
+    draw_text("Quiz Score and Feedback", x = quiz_box.centerx, y = int(screen_height * 0.31),size = int(screen_height * 0.04), anchor="center")
+    
 
 def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()
@@ -219,6 +226,7 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
     progress_box.draw_box(screen)
     draw_progress_bar()
     back_button.draw(screen)
+    score_and_feedback()
     
     for event in events: 
         profile_pic.handle_event(event)

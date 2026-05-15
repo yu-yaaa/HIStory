@@ -39,26 +39,21 @@ def generate_user_id():
     
     return f"USR{new_num:03d}"
 
-
 def add_user_progress():
     user_id = session.current_user["user_id"]
-    
-    cursor.execute('SELECT chapter_id FROM chapter ORDER BY chapter_order')
-    chapters = cursor.fetchall()                        # Bug 1 fix — fetch first
-    
-    for i, (chapter_id,) in enumerate(chapters):       # Bug 1 fix — enumerate(chapters)
-        cursor.execute("SELECT COUNT(*) FROM progress")
-        count = cursor.fetchone()[0]
-        progress_id = f"P{str(count + 1).zfill(3)}"
-        
-        status = "Unlocked" if i == 0 else "Locked"
-        
-        cursor.execute('''INSERT INTO progress 
-                         (progress_id, user_id, chapter_id, status, last_accessed, attempts_count, score) 
-                         VALUES (?,?,?,?,?,?,?)''', 
-                       (progress_id, user_id, chapter_id, status, datetime.now(), 0, 0))  # Bug 3 fix
-    
-    conn.commit()   # don't forget to save to the database!
+
+    cursor.execute('SELECT chapter_id FROM chapter ORDER BY chapter_order LIMIT 1')
+    (chapter_id,) = cursor.fetchone()  # only grabs the first chapter
+
+    cursor.execute("SELECT COUNT(*) FROM progress")
+    count = cursor.fetchone()[0]
+    progress_id = f"P{str(count + 1).zfill(3)}"
+
+    cursor.execute('''INSERT INTO progress 
+                     (progress_id, user_id, chapter_id, status, last_accessed, attempts_count, score) 
+                     VALUES (?,?,?,?,?,?,?)''',
+                   (progress_id, user_id, chapter_id, "Unlocked", datetime.now(), 0, 0))
+    conn.commit()
         
 def register_user(email, username, pw, role):
     try:
@@ -177,4 +172,5 @@ def get_user_progress():
         return complete, total
     except Exception as e:
         print(f"Error getting user progress: {e}")
-        return 0, 0  # safe fallback
+        return 0, 0
+
