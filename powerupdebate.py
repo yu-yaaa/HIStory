@@ -7,10 +7,10 @@ import pygame
 from dataclasses import dataclass, field
 from typing import Optional
 
-CORRECT_ANSWERS_PER_REWARD = 3   # award 1 powerup every N correct answers
-REGEN_AMOUNT               = 2   # score points restored by Regenerate
-DMG_REDUCE_FACTOR          = 0.5 # fraction of penalty kept (0.5 = half penalty)
-HINT_ELIMINATE_COUNT       = 1   # number of wrong options hidden by Hint
+CORRECT_ANSWERS_PER_REWARD = 3   
+REGEN_AMOUNT               = 2   
+DMG_REDUCE_FACTOR          = 0.5 
+HINT_ELIMINATE_COUNT       = 1 
 
 _CLR_PANEL_BG = (8,   18,  55,  210)
 _CLR_GOLD     = (255, 204,   0)
@@ -83,7 +83,6 @@ def _load_inventory(user_id: str) -> list:
 
 
 def _upsert_player_reward(user_id: str, reward_id: str, delta: int) -> int:
-    # Adds delta to existing row, or inserts new row. Quantity clamped to >= 0.
     with _get_conn() as conn:
         row = conn.execute(
             "SELECT player_reward_id, quantity FROM player_reward "
@@ -122,7 +121,7 @@ def _blit_alpha(surface, color_rgba, rect, radius=10):
 
 class PowerUpManager:
 
-    _NOTIFY_DURATION = 200   # frames
+    _NOTIFY_DURATION = 200   
 
     def __init__(self, user_id: str, screen_size=(1280, 720)):
         self.user_id   = user_id
@@ -132,10 +131,8 @@ class PowerUpManager:
         self._inventory: list[PowerUpSlot] = []
         self._available_rewards: list      = []
 
-        # Correct-answer streak counter (resets every CORRECT_ANSWERS_PER_REWARD)
         self._correct_count = 0
 
-        # Active effect flags
         self._shield_active     = False
         self._dmg_reduce_active = False
         self._regen_pending     = 0
@@ -143,36 +140,25 @@ class PowerUpManager:
         self._hint_used_this_round        = False
         self._hint_hidden_indices: list   = []
 
-        # Notification
         self._notify_text  = ""
         self._notify_timer = 0
         self._notify_clr   = _CLR_POWERUP
 
-        # Fonts (injected via load_fonts after pygame is ready)
+
         self._font_small = None
         self._font_hud   = None
 
-        # UI state
         self._menu_open            = False
         self._menu_rect            = None
         self._menu_slot_rects: list[pygame.Rect] = []
         self._slot_rects:      list[pygame.Rect] = []
 
-        # Load data from DB
         self._available_rewards = _load_debate_rewards()
         self._refresh_inventory()
-
-    # -----------------------------------------------------------------------
-    # Setup
-    # -----------------------------------------------------------------------
 
     def load_fonts(self, font_small, font_hud):
         self._font_small = font_small
         self._font_hud   = font_hud
-
-    # -----------------------------------------------------------------------
-    # Game-logic API  (called from debate.py)
-    # -----------------------------------------------------------------------
 
     def on_correct_answer(self) -> int:
         """
@@ -265,10 +251,6 @@ class PowerUpManager:
     def correct_streak_info(self):
         """Returns (current_count, threshold) for HUD display in debate.py."""
         return (self._correct_count, CORRECT_ANSWERS_PER_REWARD)
-
-    # -----------------------------------------------------------------------
-    # Rendering API  (called from debate.py _render)
-    # -----------------------------------------------------------------------
 
     def draw_hud(self, surface: pygame.Surface):
         """Render the compact inventory icon strip."""
@@ -403,10 +385,6 @@ class PowerUpManager:
 
         self._menu_open = False
         return None
-
-    # -----------------------------------------------------------------------
-    # Private helpers
-    # -----------------------------------------------------------------------
 
     def _refresh_inventory(self):
         rows     = _load_inventory(self.user_id)
