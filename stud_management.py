@@ -303,7 +303,7 @@ def draw_stud_manage(screen, events):
         class_dropdown.handle_event(event)
         sort_dropdown.handle_event(event)
 
-    #show overlay ON TOP
+    #show overlay ON TOP cause the dropdowns  tyrna take the spotlight
     if show_progress_overlay and selected_student_id:
         result = run_student_progress_overlay(
             screen, events,
