@@ -45,7 +45,7 @@ while running:
         result  = run_student_mainmenu(events)
         if result == "profile":
             current_scene = "profile"
-        #elif result == "progress":
+        
                 
     elif current_scene == "profile":
         if profile_pic is None:
@@ -53,10 +53,8 @@ while running:
             user_id  = session.current_user["user_id"],
             box_x    = int(screen.get_width() * 0.115),
             box_y    = int(screen.get_height() * 0.07),   # ← higher up
-            box_size = int(screen.get_height() * 0.2)    # ← smaller box
-        )
+            box_size = int(screen.get_height() * 0.2))
         current_scene, show_join_popup, show_change_pw_popup = run_student_profile(events, show_join_popup, profile_pic, show_change_pw_popup)
-    
     # reset when leaving profile page
     if current_scene != "profile":
         profile_pic = None

@@ -39,6 +39,22 @@ def generate_user_id():
     
     return f"USR{new_num:03d}"
 
+def add_user_progress():
+    user_id = session.current_user["user_id"]
+
+    cursor.execute('SELECT chapter_id FROM chapter ORDER BY chapter_order LIMIT 1')
+    (chapter_id,) = cursor.fetchone()  # only grabs the first chapter
+
+    cursor.execute("SELECT COUNT(*) FROM progress")
+    count = cursor.fetchone()[0]
+    progress_id = f"P{str(count + 1).zfill(3)}"
+
+    cursor.execute('''INSERT INTO progress 
+                     (progress_id, user_id, chapter_id, status, last_accessed, attempts_count, score) 
+                     VALUES (?,?,?,?,?,?,?)''',
+                   (progress_id, user_id, chapter_id, "Unlocked", datetime.now(), 0, 0))
+    conn.commit()
+        
 def register_user(email, username, pw, role):
     try:
         new_id = generate_user_id()
@@ -134,7 +150,27 @@ def get_player_rewards():
     try:
         cursor.execute('SELECT reward_id, quantity FROM player_reward WHERE user_id = ?', (user_id,))
         result = cursor.fetchall()
-        return {row[0]: row[1] for row in result}  # {"R001": 2, "R004": 1, ...}
+        return {row[0]: row[1] for row in result}
     except Exception as e:
         print(f"Error getting user rewards: {e}")
         return {}
+    
+def get_user_progress():
+    user_id = session.current_user["user_id"]
+    try:
+        # Get total chapters for this user
+        cursor.execute('SELECT COUNT(*) FROM progress WHERE user_id = ?', (user_id,))
+        total = cursor.fetchone()[0]
+
+        # Get only completed chapters
+        cursor.execute(
+            'SELECT COUNT(*) FROM progress WHERE user_id = ? AND status = ?',
+            (user_id, "Completed")
+        )
+        complete = cursor.fetchone()[0]
+
+        return complete, total
+    except Exception as e:
+        print(f"Error getting user progress: {e}")
+        return 0, 0
+

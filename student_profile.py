@@ -66,6 +66,16 @@ power_up_box = Box(x = int(screen_width * 0.05),
                    w = int(screen_width * 0.25),
                    h = int(screen_height * 0.28))
 
+back_button = Arrow_Button("left",
+                           x = int(screen_width * 0.01),
+                           y = int(screen_width * 0.01),
+                           size = int(screen_width * 0.05),
+                           colour = border_red,
+                           hover_colour = (110, 11, 9),
+                           border_r = 30,
+                           border_w= 0,
+                           border_colour = black)
+
 def make_grayscale(surface):
     gray = pygame.Surface(surface.get_size(), flags=pygame.SRCALPHA)
     for x in range(surface.get_width()):
@@ -75,7 +85,42 @@ def make_grayscale(surface):
             gray.set_at((x, y), (avg, avg, avg, a))
     return gray
 
+progress_box = Box(x = int(screen_width * 0.32),
+                   y = int(screen_height * 0.1),
+                   w = int(screen_width * 0.65),
+                   h = int(screen_height * 0.175))
 
+def draw_progress_bar():
+    complete, total = get_user_progress()
+    pct = int((complete / total) * 100) if total > 0 else 0
+    progress_bar = Box(x = int(screen_width * 0.34),
+                   y = int(screen_height * 0.2),
+                   w = int(progress_box.width * 0.9),
+                   h = int(progress_box.height * 0.3),
+                   colour = (255,255,255),
+                   alpha = 255,
+                   border_r = 40)
+
+    complete_progress_bar = Box(x = int(screen_width * 0.34),
+                    y = int(screen_height * 0.2),
+                    w = int(progress_box.width * 0.9 * (pct / 100)),
+                    h = int  (progress_box.height * 0.3),
+                    colour = (38, 199, 57),
+                    alpha = 255,
+                    border_r = 40)
+    progress_bar.draw_box(screen)
+    complete_progress_bar.draw_box(screen)
+    draw_text(f"Progress Bar: Chapter {complete} out of {total}", x = int(screen_width* 0.33), y = int(screen_height *0.125), size = int(screen_height * 0.04))
+    draw_text(f"{pct}%", int(screen_width* 0.6), int(screen_height * 0.22),size= int(screen_height * 0.03), anchor = "center")
+
+def score_and_feedback():
+    quiz_box = Box(x = int(screen_width * 0.32),
+               y = int(screen_height * 0.3),
+               w = int(screen_width * 0.65),
+               h = int(screen_height * 0.66))
+    quiz_box.draw_box(screen)
+    draw_text("Quiz Score and Feedback", x = quiz_box.centerx, y = int(screen_height * 0.31),size = int(screen_height * 0.04), anchor="center")
+    
 
 def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()
@@ -151,7 +196,7 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
     start_x = power_up_box.Rect.x + int(screen_width * 0.02)
     start_y = power_up_box.Rect.y + int(screen_height * 0.05)
     mouse_pos = pygame.mouse.get_pos()
-    cols = 3  # how many per row, adjust to fit your box
+    cols = 3 
     hovered_tooltip = None
 
     for i, (reward_id, name, desc,type, pic) in enumerate(all_rewards):
@@ -178,7 +223,11 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
         name, desc, qty, x, y = hovered_tooltip
         tx = max(x, power_up_box.Rect.x + int(screen_width * 0.15)) 
         draw_tooltip(screen, f"{name}\n{desc}\nAmount Owned: {qty}\nUsed in: {type}", (tx, y))
-
+    progress_box.draw_box(screen)
+    draw_progress_bar()
+    back_button.draw(screen)
+    score_and_feedback()
+    
     for event in events: 
         profile_pic.handle_event(event)
         if not joined_class:
@@ -188,6 +237,8 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
         if change_password.is_clicked(event):
             just_opened_pw = True
             show_change_pw_popup = True
+        if back_button.is_clicked(event):   # also fix: is_clicked needs the event
+            return "student_menu", show_join_class_popup, show_change_pw_popup
             
     if show_join_class_popup and not just_opened:
         result = join_class_popup(events)
