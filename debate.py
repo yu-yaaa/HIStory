@@ -2,8 +2,16 @@ import pygame
 import sys
 import math
 import random
+import os
 
 from database import fetch_rewards_by_type
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+def asset_path(relative: str):
+    return os.path.join(PROJECT_ROOT, relative)
+
+FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
 
 class AnswerOption:
     def __init__(self, text: str, score: int):
@@ -43,7 +51,7 @@ class PowerUp:
             self.icon = None
 
 DEBATE_ROUNDS: "list[DebateRound]" = [
-
+#debat line and answer selection
     DebateRound(
         speaker="Narrator",
         dialogue=(
@@ -297,13 +305,13 @@ class DebateGame:
                 self._powerup_notify_timer = self._NOTIFY_DURATION
 
     def _init_fonts(self):
-        self.font_title   = pygame.font.SysFont("Georgia", int(self.H * 0.038), bold=True)
-        self.font_speaker = pygame.font.SysFont("Georgia", int(self.H * 0.028), bold=True)
-        self.font_body    = pygame.font.SysFont("Arial",   int(self.H * 0.020))
-        self.font_answer  = pygame.font.SysFont("Arial",   int(self.H * 0.018))
-        self.font_small   = pygame.font.SysFont("Arial",   int(self.H * 0.015))
-        self.font_score   = pygame.font.SysFont("Georgia", int(self.H * 0.055), bold=True)
-        self.font_hud     = pygame.font.SysFont("Arial",   int(self.H * 0.019), bold=True)
+        self.font_title   = pygame.font.Font(FONT_PATH, int(self.H * 0.038))
+        self.font_speaker = pygame.font.Font(FONT_PATH, int(self.H * 0.028))
+        self.font_body    = pygame.font.Font(FONT_PATH, int(self.H * 0.020))
+        self.font_answer  = pygame.font.Font(FONT_PATH, int(self.H * 0.018))
+        self.font_small   = pygame.font.Font(FONT_PATH, int(self.H * 0.015))
+        self.font_score   = pygame.font.Font(FONT_PATH, int(self.H * 0.055))
+        self.font_hud     = pygame.font.Font(FONT_PATH, int(self.H * 0.019))
 
     def _load_assets(self):
         try:

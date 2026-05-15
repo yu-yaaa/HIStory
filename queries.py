@@ -115,8 +115,7 @@ def save_otp(otp):
         return True
     except Exception as e:
         print(f"Error saving OTP: {e}")
-        return False
-    
+        return False 
         
 def get_otp(user_email):
     user_id = session.current_user["user_id"]
