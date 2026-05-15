@@ -112,15 +112,69 @@ def draw_progress_bar():
     complete_progress_bar.draw_box(screen)
     draw_text(f"Progress Bar: Chapter {complete} out of {total}", x = int(screen_width* 0.33), y = int(screen_height *0.125), size = int(screen_height * 0.04))
     draw_text(f"{pct}%", int(screen_width* 0.6), int(screen_height * 0.22),size= int(screen_height * 0.03), anchor = "center")
-
-def score_and_feedback():
-    quiz_box = Box(x = int(screen_width * 0.32),
-               y = int(screen_height * 0.3),
-               w = int(screen_width * 0.65),
-               h = int(screen_height * 0.66))
-    quiz_box.draw_box(screen)
-    draw_text("Quiz Score and Feedback", x = quiz_box.centerx, y = int(screen_height * 0.31),size = int(screen_height * 0.04), anchor="center")
     
+def score_and_feedback():
+    quiz_box = Box(x=int(screen_width * 0.32),
+                   y=int(screen_height * 0.3),
+                   w=int(screen_width * 0.65),
+                   h=int(screen_height * 0.66))
+    quiz_box.draw_box(screen)
+    draw_text("Quiz Score And Feedbacks",
+              x=quiz_box.Rect.centerx,
+              y=int(screen_height * 0.33),
+              size=int(screen_height * 0.04),
+              anchor="center")
+
+    quizzes = get_quiz_scores()
+
+    cols    = 2
+    card_w  = int(screen_width * 0.29)
+    card_h  = int(screen_height * 0.13)
+    gap_x   = int(screen_width  * 0.02)
+    gap_y   = int(screen_height * 0.02)
+    start_x = int(screen_width  * 0.33)
+    start_y = int(screen_height * 0.37)
+
+    for i, (quiz_title, score, feedback, is_locked) in enumerate(quizzes):
+        col = i % cols
+        row = i // cols
+        cx  = start_x + col * (card_w + gap_x)
+        cy  = start_y + row * (card_h + gap_y)
+
+        # Card background
+        card = Box(x=cx, y=cy, w=card_w, h=card_h,
+                   colour=(255, 245, 210), alpha=255, border_r=12)
+        card.draw_box(screen)
+
+        # Chapter / quiz title (left)
+        draw_text(quiz_title,
+                  x=cx + int(screen_width * 0.01),
+                  y=cy + int(screen_height * 0.012),
+                  size=int(screen_height * 0.028))
+
+        # Score or "Locked" (right)
+        if is_locked:
+            draw_text("Locked",
+                      x=cx + card_w - int(screen_width * 0.01),
+                      y=cy + int(screen_height * 0.012),
+                      size=int(screen_height * 0.028),
+                      colour=grey,
+                      anchor="topright")
+        else:
+            score_color = (38, 199, 57) if score >= 60 else (253, 140, 0)
+            draw_text(f"{score}%",
+                      x=cx + card_w - int(screen_width * 0.01),
+                      y=cy + int(screen_height * 0.012),
+                      size=int(screen_height * 0.028),
+                      colour=score_color,
+                      anchor="topright")
+
+        # Feedback text (smaller, grey)
+        draw_text(f"Feedback:  {feedback}",
+                  x=cx + int(screen_width * 0.01),
+                  y=cy + int(screen_height * 0.058),
+                  size=int(screen_height * 0.022),
+                  colour=grey)
 
 def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()

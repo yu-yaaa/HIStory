@@ -2,189 +2,175 @@ import pygame
 import random
 import time
 import sys
+import sqlite3
+from typing import List, Tuple
 
-# --- Initialization ---
-pygame.init()
-SCREEN_WIDTH, SCREEN_HEIGHT = 600, 500
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-pygame.display.set_caption("Whack-a-Mole!")
-
-# --- Colors (Improved Palette) ---
-GRASS_GREEN = (40, 160, 80)
-DIRT_BROWN = (120, 72, 40)
-HOLE_BROWN = (50, 30, 20)
-MOLE_BROWN = (110, 75, 45)
-PINK = (255, 170, 180)
-WHITE = (240, 240, 240)
-BLACK = (20, 20, 20)
+# --- Configuration ---
+WIDTH: int = 1000
+HEIGHT: int = 700
+FPS: int = 60
+TARGET_RADIUS: int = 25
+TARGET_COLOR = (255, 80, 80)
+BG_COLOR = (20, 20, 25)
+WHITE = (255, 255, 240)
 GOLD = (255, 210, 60)
-SHADOW = (0, 0, 0, 80)
+DB_PATH = "HIStory.db"
 
-# --- Fonts ---
-font_large = pygame.font.SysFont("Arial", 60, bold=True)
-font_medium = pygame.font.SysFont("Arial", 32, bold=True)
-font_small = pygame.font.SysFont("Arial", 22)
+# --- Database Integration ---
+def get_next_result_id(cursor):
+    """Generates a primary key MGRxxx based on current records."""
+    cursor.execute("SELECT COUNT(*) FROM minigame_result")
+    count = cursor.fetchone()[0]
+    return f"MGR{str(count + 1).zfill(3)}"
 
-# --- Positions ---
-HOLE_RADIUS = 45
-HOLE_POSITIONS = [(100 + col * 200, 150 + row * 120) for row in range(3) for col in range(3)]
-
-def draw_text_shadow(surface, text, font, color, pos):
-    shadow = font.render(text, True, (0, 0, 0))
-    surface.blit(shadow, (pos[0]+2, pos[1]+2))
-    surface.blit(font.render(text, True, color), pos)
-
-class Mole:
-    def __init__(self, hole_index):
-        self.hole_index = hole_index
-        self.x, self.y = HOLE_POSITIONS[hole_index]
-        self.spawn_time = time.time()
-        self.whacked = False
-        self.offset = HOLE_RADIUS
-        self.speed = 8
-
-    def update(self):
-        elapsed = time.time() - self.spawn_time
-        if self.whacked or elapsed >= 1.0:
-            self.offset += self.speed
-            return self.offset < HOLE_RADIUS
-        else:
-            self.offset = max(0, self.offset - self.speed)
-            return True
-
-    def draw(self, surface):
-        if self.offset >= HOLE_RADIUS: return
-        visible_h = HOLE_RADIUS - self.offset
-        mole_y = self.y - visible_h + 10
-
-        # Body
-        mole_rect = pygame.Rect(self.x - 35, max(self.y - 45, mole_y), 70, min(visible_h + 20, 90))
-        pygame.draw.ellipse(surface, MOLE_BROWN, mole_rect)
-
-        # Face
-        if visible_h > 25:
-            pygame.draw.circle(surface, WHITE, (self.x - 15, int(mole_y + 15)), 7)
-            pygame.draw.circle(surface, WHITE, (self.x + 15, int(mole_y + 15)), 7)
-            pygame.draw.circle(surface, BLACK, (self.x - 15, int(mole_y + 15)), 3)
-            pygame.draw.circle(surface, BLACK, (self.x + 15, int(mole_y + 15)), 3)
-            pygame.draw.ellipse(surface, PINK, (self.x - 8, int(mole_y + 30), 16, 10))
-
-class Game:
-    def __init__(self):
-        self.score = 0
-        self.moles = []
-        self.last_spawn = time.time()
-        self.state = "START"
-        self.hammer_pos = (0, 0)
-        self.hammer_down = False
-        self.hammer_time = 0
-        self.occupied = set()
-
-    def update(self):
-        if self.state != "PLAYING": return
+def save_minigame_result(user_id, playing_time, accuracy, tps):
+    """Saves results to the SQLite database."""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        res_id = get_next_result_id(cursor)
         
-        if self.score >= 200:
-            self.state = "WON"
-            return
+        sql = """INSERT INTO minigame_result 
+                 (minigame_result_id, user_id, minigame_id, playing_time_seconds, accuracy, "target/second") 
+                 VALUES (?, ?, ?, ?, ?, ?)"""
+        
+        values = (res_id, user_id, "MG002", playing_time, accuracy, tps)
+        cursor.execute(sql, values)
+        conn.commit() 
+        print(f"Successfully saved {res_id} to database.")
+    except sqlite3.Error as err:
+        print(f"Database Error: {err}")
+    finally:
+        if conn:
+            conn.close()
 
-        now = time.time()
-        if now - self.last_spawn > 0.8 and len(self.moles) < 3:
-            avail = [i for i in range(9) if i not in self.occupied]
-            if avail:
-                idx = random.choice(avail)
-                self.moles.append(Mole(idx))
-                self.occupied.add(idx)
-                self.last_spawn = now
+class Target:
+    def __init__(self) -> None:
+        self.x: int = random.randint(TARGET_RADIUS, WIDTH - TARGET_RADIUS)
+        self.y: int = random.randint(TARGET_RADIUS, HEIGHT - TARGET_RADIUS)
 
-        for m in self.moles[:]:
-            if not m.update():
-                self.occupied.discard(m.hole_index)
-                self.moles.remove(m)
+    def draw(self, screen: pygame.Surface) -> None:
+        pygame.draw.circle(screen, WHITE, (self.x, self.y), TARGET_RADIUS + 2)
+        pygame.draw.circle(screen, TARGET_COLOR, (self.x, self.y), TARGET_RADIUS)
 
-        if self.hammer_down and now - self.hammer_time > 0.1:
-            self.hammer_down = False
-
-    def handle_click(self, pos):
-        if self.state == "START":
-            self.state = "PLAYING"
-        elif self.state == "WON":
-            pygame.quit()
-            sys.exit()
-        elif self.state == "PLAYING":
-            self.hammer_pos, self.hammer_down, self.hammer_time = pos, True, time.time()
-            for m in self.moles:
-                if not m.whacked and ((pos[0]-m.x)**2 + (pos[1]-m.y)**2)**0.5 < 45:
-                    m.whacked = True
-                    self.score += 10
-                    break
-
-    def draw(self, surface):
-        surface.fill(GRASS_GREEN)
-
-        # --- Header Bar ---
-        pygame.draw.rect(surface, (15, 15, 25), (0, 0, SCREEN_WIDTH, 60))
-        pygame.draw.line(surface, (80, 80, 120), (0, 60), (SCREEN_WIDTH, 60), 2)
-
-        draw_text_shadow(surface, f"SCORE: {self.score}/200", font_small, GOLD, (20, 18))
-
-        # --- Holes (Depth Effect) ---
-        for pos in HOLE_POSITIONS:
-            pygame.draw.ellipse(surface, DIRT_BROWN, (pos[0]-55, pos[1]-20, 110, 60))
-            pygame.draw.ellipse(surface, HOLE_BROWN, (pos[0]-45, pos[1]-10, 90, 40))
-
-        # --- Moles ---
-        for m in self.moles:
-            m.draw(surface)
-
-        # Front dirt layer
-        for pos in HOLE_POSITIONS:
-            pygame.draw.ellipse(surface, DIRT_BROWN, (pos[0]-55, pos[1]+10, 110, 25))
-
-        # --- Hammer (Cleaner look) ---
-        hx, hy = self.hammer_pos
-        pygame.draw.line(surface, (120, 70, 30), (hx, hy), (hx + 20, hy + 25), 5)
-        pygame.draw.rect(surface, (180, 180, 180),
-                         (hx-8 if self.hammer_down else hx,
-                          hy-8 if self.hammer_down else hy,
-                          22, 14), border_radius=3)
-
-        # --- Overlays ---
-        if self.state == "START":
-            self.draw_overlay(surface, "OBJECTIVE", "Whack 20 moles to win!", "Click to Start")
-        elif self.state == "WON":
-            self.draw_overlay(surface, "CONGRATULATIONS!", f"Score: {self.score}", "Click to Exit")
-
-    def draw_overlay(self, surface, title, sub, prompt):
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 180))
-        surface.blit(overlay, (0, 0))
-
-        t_surf = font_medium.render(title, True, GOLD)
-        s_surf = font_small.render(sub, True, WHITE)
-        p_surf = font_small.render(prompt, True, WHITE)
-
-        surface.blit(t_surf, (SCREEN_WIDTH//2 - t_surf.get_width()//2, 170))
-        surface.blit(s_surf, (SCREEN_WIDTH//2 - s_surf.get_width()//2, 230))
-        surface.blit(p_surf, (SCREEN_WIDTH//2 - p_surf.get_width()//2, 300))
+    def is_clicked(self, mouse_pos: Tuple[int, int]) -> bool:
+        distance = ((self.x - mouse_pos[0])**2 + (self.y - mouse_pos[1])**2)**0.5
+        return distance <= TARGET_RADIUS
 
 def main():
+    pygame.init()
+    # Identical Screenlock: No Frame and specific resolution
+    screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
+    pygame.display.set_caption("Aimlab - Precision Trainer")
     clock = pygame.time.Clock()
-    game = Game()
-    pygame.mouse.set_visible(False)
     
+    # Identical Fonts from Whack-a-Mole
+    font_medium = pygame.font.SysFont("Arial", 40, bold=True)
+    font_small = pygame.font.SysFont("Arial", 18)
+    font_ui = pygame.font.SysFont("Arial", 24, bold=True)
+
+    # Game State
+    user_id = "USR051"
+    state = "START"
+    targets: List[Target] = [Target()]
+    hits = 0
+    total_clicks = 0
+    start_time = 0
+    final_time = 0
+    accuracy = 0
+    tps = 0.0
+    saved = False
+    
+    # Mouse Lock Setup
+    pygame.mouse.set_visible(False)
+    pygame.event.set_grab(True)
+    mouse_pos = (0, 0)
+
     while True:
+        screen.fill(BG_COLOR)
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                game.handle_click(event.pos)
+                pygame.quit()
+                sys.exit()
+            
             if event.type == pygame.MOUSEMOTION:
-                game.hammer_pos = event.pos
-        
-        game.update()
-        game.draw(screen)
+                mouse_pos = event.pos
+            
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if state == "START":
+                    state = "PLAYING"
+                    start_time = time.time()
+                    hits, total_clicks, saved = 0, 0, False
+                    targets = [Target()]
+                
+                elif state == "WON":
+                    # Release the system
+                    pygame.event.set_grab(False)
+                    pygame.quit()
+                    sys.exit()
+                
+                elif state == "PLAYING":
+                    total_clicks += 1
+                    for t in targets[:]:
+                        if t.is_clicked(event.pos):
+                            targets.remove(t)
+                            hits += 1
+                            if hits < 20:
+                                targets.append(Target())
+                            else:
+                                final_time = round(time.time() - start_time, 2)
+                                accuracy = int((hits / total_clicks) * 100) if total_clicks > 0 else 0
+                                tps = round(hits / final_time, 2) if final_time > 0 else 0
+                                state = "WON"
+                                if not saved:
+                                    save_minigame_result(user_id, final_time, accuracy, tps)
+                                    saved = True
+                            break
+
+        if state == "PLAYING":
+            for t in targets:
+                t.draw(screen)
+            
+            # HUD Display
+            current_elapsed = time.time() - start_time
+            curr_acc = (hits / total_clicks * 100) if total_clicks > 0 else 100
+            hud_text = f"USER: {user_id} | HITS: {hits}/20 | TIME: {current_elapsed:.1f}s | ACC: {int(curr_acc)}%"
+            screen.blit(font_small.render(hud_text, True, GOLD), (20, 20))
+
+        # --- Identical Overlay Logic ---
+        if state != "PLAYING":
+            overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 230))
+            screen.blit(overlay, (0, 0))
+            
+            if state == "START":
+                t_s = font_medium.render("INTERFACE LOCKED", True, GOLD)
+                s_s = font_small.render("Complete task to unlock system.", True, (240, 240, 240))
+                p_s = font_small.render("Click to Start", True, (0, 255, 100))
+                screen.blit(t_s, (WIDTH//2 - t_s.get_width()//2, 200))
+                screen.blit(s_s, (WIDTH//2 - s_s.get_width()//2, 270))
+                screen.blit(p_s, (WIDTH//2 - p_s.get_width()//2, 360))
+            
+            elif state == "WON":
+                t_s = font_medium.render("TASK COMPLETE", True, GOLD)
+                screen.blit(t_s, (WIDTH//2 - t_s.get_width()//2, 150))
+                
+                stats = [f"Final Time: {final_time}s", f"Final Accuracy: {accuracy}%", f"Final TPS: {tps}"]
+                for i, stat in enumerate(stats):
+                    stat_s = font_small.render(stat, True, WHITE)
+                    screen.blit(stat_s, (WIDTH//2 - stat_s.get_width()//2, 240 + (i * 40)))
+                
+                p_s = font_small.render("Click to Release System", True, (0, 255, 100))
+                screen.blit(p_s, (WIDTH//2 - p_s.get_width()//2, 420))
+
+        # Custom Cursor (Hammer-like replacement)
+        pygame.draw.circle(screen, GOLD, mouse_pos, 5)
+        pygame.draw.circle(screen, WHITE, mouse_pos, 10, 1)
+
         pygame.display.flip()
-        clock.tick(60)
+        clock.tick(FPS)
 
 if __name__ == "__main__":
     main()

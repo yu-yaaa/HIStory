@@ -143,7 +143,6 @@ def validate_user(gmail,username,pw,comfirm_pw,selected_role):
     else:
         return True, "Sign in successful!"
     
-    
 def run_register(events):    # function to draw everything needed for register page
     screen.blit(bg_img, (0, 0))
     screen.blit(login_box, login_box_rect)
@@ -191,7 +190,7 @@ def run_register(events):    # function to draw everything needed for register p
                     x=login_box_rect.left + 30, 
                     y = login_box_rect.top + int(box_height * 0.87),
                     colour = border_red,
-                    size = int(screen_height * 0.035) )
+                    size = int(screen_height * 0.03) )
     
     for event in events:
         gmail_field.handle_event(event) 
@@ -235,7 +234,7 @@ def run_register(events):    # function to draw everything needed for register p
                     role = register_state["selected_role"].lower()
                     success, result = register_user(email, username, password, role)
                     if success:
-                        add_user_progress()
+                        add_user_progress(result)
                         return "login"
                     else:
                         register_state["error_message"] = result
