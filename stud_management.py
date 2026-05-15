@@ -5,6 +5,7 @@ import session
 from button_class import *
 from dropdown import *
 from tcher_database import get_teacher_classrooms, get_students_by_classroom
+from student_progress_overlay import run_student_progress_overlay
 
 # module level
 font                 = None
@@ -16,6 +17,9 @@ SCROLL_SPEED         = 20
 initialized_for = None
 sort_dropdown = None
 last_sort = "Default"
+show_progress_overlay = False
+selected_student_id   = None
+selected_attention    = 0
 
 def init(screen):
     global font, class_dropdown, sort_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected
@@ -50,7 +54,7 @@ def init(screen):
     sort_dropdown = Dropdown(
             int(screen.get_width() * 0.08) + 280,  # ← next to class dropdown
             int(screen.get_height() * 0.27),
-            220, 50,
+            270, 50,
             ["Default", "Highest Progress", "Lowest Progress", "Highest Attention", "Lowest Attention"],
             bg_color="#539CF5",
             border_color="#1B1F5B",
@@ -147,7 +151,7 @@ def draw_student_card(screen, student, x, y, card_w=320, card_h=220):
 
 
 def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_h):
-    global scroll_offset
+    global scroll_offset, show_progress_overlay, selected_student_id, selected_attention  
 
     card_w  = 400
     card_h  = 210
@@ -179,7 +183,9 @@ def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_
 
         for event in events:
             if view_btn.is_clicked(event):
-                pass  # TODO: view student
+                show_progress_overlay = True
+                selected_student_id   = student["user_id"]
+                selected_attention    = student["attention"]
             if remove_btn.is_clicked(event):
                 pass  # TODO: remove student
 
@@ -206,6 +212,10 @@ def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_
 
 def draw_stud_manage(screen, events):
     global students, scroll_offset, last_selected
+    global students, scroll_offset, last_selected
+    global show_progress_overlay
+    global selected_student_id
+    global selected_attention
     init(screen)
 
     draw_background(screen)
@@ -280,6 +290,8 @@ def draw_stud_manage(screen, events):
                   screen.get_width() // 2,
                   int(screen.get_height() * 0.5),
                   (255, 255, 255), size=32, anchor="center")
+        
+
     
     class_dropdown.draw(screen)
     sort_dropdown.draw(screen)
@@ -290,5 +302,15 @@ def draw_stud_manage(screen, events):
             return "dashboard"
         class_dropdown.handle_event(event)
         sort_dropdown.handle_event(event)
+
+    #show overlay ON TOP
+    if show_progress_overlay and selected_student_id:
+        result = run_student_progress_overlay(
+            screen, events,
+            selected_student_id,
+            selected_attention
+        )
+        if result == "close":
+            show_progress_overlay = False   
 
     return None

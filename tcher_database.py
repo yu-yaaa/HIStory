@@ -174,3 +174,94 @@ def get_students_by_classroom(classroom_id, teacher_id):
         })
 
     return students
+
+def get_student_progress_detail(student_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # get student info + classroom name
+    cursor.execute("""
+        SELECT u.username, u.profile_picture, c.class_name
+        FROM user u
+        LEFT JOIN classroom c ON u.classroom_id = c.classroom_id
+        WHERE u.user_id = ?
+    """, (student_id,))
+    student_info = cursor.fetchone()
+
+    # get progress per chapter
+    cursor.execute("""
+        SELECT 
+            ch.chapter_id,
+            ch.title,
+            ch.chapter_order,
+            p.status,
+            p.attempts_count,
+            p.score,
+            p.progress_id
+        FROM chapter ch
+        LEFT JOIN progress p ON ch.chapter_id = p.chapter_id 
+            AND p.user_id = ?
+        ORDER BY ch.chapter_order
+    """, (student_id,))
+    chapters = cursor.fetchall()
+
+    # get latest comment per chapter progress
+    cursor.execute("""
+        SELECT p.chapter_id, cm.comment_text, cm.sent_at, u.username
+        FROM comment cm
+        JOIN progress p ON cm.progress_id = p.progress_id
+        JOIN user u ON cm.user_id = u.user_id
+        WHERE p.user_id = ?
+        ORDER BY cm.sent_at DESC
+    """, (student_id,))
+    comments_raw = cursor.fetchall()
+
+    conn.close()
+
+    # map latest comment per chapter
+    comments = {}
+    for row in comments_raw:
+        chapter_id = row[0]
+        if chapter_id not in comments:  # only keep latest
+            comments[chapter_id] = {
+                "text":     row[1],
+                "sent_at":  row[2],
+                "username": row[3]
+            }
+
+    return {
+        "username":        student_info[0] if student_info else "Unknown",
+        "profile_picture": student_info[1] if student_info else None,
+        "class_name":      student_info[2] if student_info else "Unknown",
+        "chapters": [
+            {
+                "chapter_id":    row[0],
+                "title":         row[1],
+                "order":         row[2],
+                "status":        row[3] or "Locked",
+                "attempts":      row[4] or 0,
+                "score":         row[5] or 0,
+                "progress_id":   row[6],
+                "comment":       comments.get(row[0])
+            }
+            for row in chapters
+        ]
+    }
+
+def add_comment(teacher_id, progress_id, comment_text):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # generate comment id
+    cursor.execute("SELECT COUNT(*) FROM comment")
+    count = cursor.fetchone()[0]
+    comment_id = f"CM{str(count + 1).zfill(3)}"
+
+    from datetime import date
+    cursor.execute("""
+        INSERT INTO comment (comment_id, user_id, progress_id, comment_text, sent_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (comment_id, teacher_id, progress_id, comment_text, date.today()))
+
+    conn.commit()
+    conn.close()

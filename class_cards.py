@@ -113,7 +113,7 @@ def draw_book_card(screen, classroom, cx, cy, events):
           size=20,
           anchor="center")
 
-    #manage students button — outside the if block
+    #manage students button
     manage_rect = pygame.Rect(card_rect.x + 15,
                               card_rect.bottom - 48,
                               CARD_W - 30, 36)
