@@ -39,9 +39,7 @@ def generate_user_id():
     
     return f"USR{new_num:03d}"
 
-def add_user_progress():
-    user_id = session.current_user["user_id"]
-
+def add_user_progress(user_id):
     cursor.execute('SELECT chapter_id FROM chapter ORDER BY chapter_order LIMIT 1')
     (chapter_id,) = cursor.fetchone()  # only grabs the first chapter
 
@@ -52,13 +50,17 @@ def add_user_progress():
     cursor.execute('''INSERT INTO progress 
                      (progress_id, user_id, chapter_id, status, last_accessed, attempts_count, score) 
                      VALUES (?,?,?,?,?,?,?)''',
-                   (progress_id, user_id, chapter_id, "Unlocked", datetime.now(), 0, 0))
+                   (progress_id, user_id, chapter_id, "Unlocked", datetime.datetime.now().isoformat(), 0, 0))
     conn.commit()
         
 def register_user(email, username, pw, role):
     try:
-        new_id = generate_user_id()
+        # Check for duplicate username
+        cursor.execute("SELECT username FROM user WHERE username = ?", (username,))
+        if cursor.fetchone():
+            return False, "Username already taken. Please choose another."
         
+        new_id = generate_user_id()
         default_pic = "Assets/user_profile/default_profile.png"
         
         cursor.execute("""
@@ -69,7 +71,7 @@ def register_user(email, username, pw, role):
         return True, new_id
     
     except sqlite3.IntegrityError as e:
-        return False, "Email or username already exists."
+        return False, "Email already exists."  # username is already handled above
     except Exception as e:
         return False, f"Database error: {str(e)}"
     
@@ -174,3 +176,20 @@ def get_user_progress():
         print(f"Error getting user progress: {e}")
         return 0, 0
 
+def get_quiz_scores():
+    user_id = session.current_user["user_id"]
+    cursor.execute("""
+        SELECT 
+            q.title         AS quiz_title,
+            p.score         AS score,
+            COALESCE(c.comment_text, 'No feedback yet') AS feedback,
+            CASE WHEN p.status = 'Completed' THEN 0 ELSE 1 END AS is_locked
+        FROM chapter ch
+        JOIN quiz     q  ON q.chapter_id  = ch.chapter_id
+        LEFT JOIN progress p  ON p.chapter_id  = ch.chapter_id
+                              AND p.user_id    = ?
+        LEFT JOIN comment  c  ON c.progress_id = p.progress_id
+        ORDER BY ch.chapter_order
+    """, (user_id ,))
+    rows = cursor.fetchall()
+    return rows   
