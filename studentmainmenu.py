@@ -1,31 +1,35 @@
 import pygame
 import os
 from sys import exit
-
-CURRENT_USER_ID = "USR007"  # replace with logged-in student id
+from progress_tracking import main as launch_progress_tracking
+import session
+CURRENT_USER_ID = session.current_user["user_id"]
 
 from database import fetch_all_chapters, fetch_character
 from studentstoryline import get_chapter_class
 
-pygame.init()
-
-info   = pygame.display.Info()
-screen = pygame.display.set_mode((info.current_w, info.current_h), pygame.FULLSCREEN | pygame.NOFRAME)
-pygame.display.set_caption("HIStory")
-clock  = pygame.time.Clock()
-
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
+from login_register_base import *
+
+# REPLACE the screen/size variables with:
+screen        = pygame.display.get_surface()
+screen_width  = screen.get_width()
+screen_height = screen.get_height()
+clock         = pygame.time.Clock()
+
 def asset_path(relative: str) -> str:
+    """Return an absolute path for a relative asset path stored in the DB
+    or hardcoded in this file.  Tries the path as-is first, then resolves
+    it relative to PROJECT_ROOT so the game works from any working directory.
+    """
     if os.path.isfile(relative):
         return relative
     full = os.path.join(PROJECT_ROOT, relative)
-    return full
+    return full  
 
 logo = pygame.image.load(asset_path("Assets/icons/HIStory Logo.png")).convert_alpha()
 bg   = pygame.image.load(asset_path("Assets/background/Main Menu background.png")).convert()
-
-screen_width, screen_height = screen.get_size()
 
 FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
 
@@ -94,7 +98,7 @@ if not CHARACTERS:
         "description": "", "asset": None, "locked": True,
     }]
 
-current_character = 0
+current_character = [0]
 
 button_labels = ["Play", "Player Profile", "Progress Track", "Exit"]
 button_width  = int(screen_width  * 0.24)
@@ -186,11 +190,14 @@ for entry in CHARACTERS:
         print(f"[carousel] loading character: {resolved}  exists={os.path.isfile(resolved)}")
         try:
             img = pygame.image.load(resolved).convert_alpha()
+
+            # Preserve aspect ratio (no stretching)
             orig_w, orig_h = img.get_size()
             scale_factor = char_h / orig_h
             new_w = int(orig_w * scale_factor)
             new_h = char_h
-            img = pygame.transform.scale(img, (new_w, new_h))
+
+            img = pygame.transform.scale(img, (new_w, new_h))  # better for pixel art
             char_images.append(img)
             loaded = True
             print(f"[carousel] OK — character image loaded")
@@ -200,9 +207,8 @@ for entry in CHARACTERS:
         print(f"[carousel] using placeholder for entry: {entry.get('name')}")
         char_images.append(make_placeholder())
 
-
 def draw_buttons(mouse_pos):
-    locked = CHARACTERS[current_character].get("locked", False)
+    locked = CHARACTERS[current_character[0]].get("locked", False)
     for btn in buttons:
         rect, label, colors = btn["rect"], btn["label"], BTN_COLORS[btn["label"]]
         if label == "Play" and locked:
@@ -256,16 +262,18 @@ def draw_lock_badge():
 
 
 def draw_carousel(mouse_pos):
-    entry  = CHARACTERS[current_character]
+    entry  = CHARACTERS[current_character[0]]
     locked = entry.get("locked", False)
 
-    img = char_images[current_character]
+    img = char_images[current_character[0]]
+
     img_rect = img.get_rect(
         midbottom=(
             panel_x + panel_w // 2 - int(screen_width * 0.04),
             pedestal_y
         )
     )
+
     screen.blit(img, img_rect)
 
     if locked:
@@ -286,18 +294,19 @@ def draw_carousel(mouse_pos):
 
 
 def launch_story():
-    entry = CHARACTERS[current_character]
+    entry = CHARACTERS[current_character[0]]
 
     if entry.get("locked", False):
         _show_coming_soon()
         return
 
-    chapter_class = get_chapter_class(current_character)
+    chapter_class = get_chapter_class(current_character[0])
     if chapter_class is None:
         _show_coming_soon()
         return
     
     chapter_class(screen, clock, user_id=CURRENT_USER_ID).run()
+
 
 def _show_coming_soon():
     ovf   = pygame.font.SysFont("Arial", int(screen_height * 0.06), bold=True)
@@ -325,34 +334,35 @@ def _show_coming_soon():
         clock.tick(60)
 
 
-running = True
-
-while running:
+def run_student_mainmenu(events):
     mouse_pos = pygame.mouse.get_pos()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
+    
+    for event in events:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for btn in buttons:
                 if btn["rect"].collidepoint(event.pos):
                     if btn["label"] == "Exit":
-                        pygame.quit(); exit()
+                        pygame.quit()
+                        exit()
                     if btn["label"] == "Play":
                         launch_story()
+                    if btn["label"] == "Player Profile":
+                        return "profile"
+                    
+                    # --- DIRECT REDIRECT LOGIC ---
+                    if btn["label"] == "Progress Track":
+                        launch_progress_tracking()
+
 
             if left_arrow.collidepoint(event.pos):
-                current_character = (current_character - 1) % len(CHARACTERS)
+                current_character[0] = (current_character[0] - 1) % len(CHARACTERS)
             if right_arrow.collidepoint(event.pos):
-                current_character = (current_character + 1) % len(CHARACTERS)
+                current_character[0] = (current_character[0] + 1) % len(CHARACTERS)
 
-    screen.blit(bg_scaled,   (0, 0))
+    # --- DRAWING CODE ---
+    screen.blit(bg_scaled, (0, 0))
     screen.blit(logo_scaled, (int(screen_width * 0.02), int(screen_height * 0.02)))
     draw_buttons(mouse_pos)
     draw_carousel(mouse_pos)
-    pygame.display.update()
-    clock.tick(60)
-
-pygame.quit()
-exit()
+    
+    return None
