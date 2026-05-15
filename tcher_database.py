@@ -265,3 +265,16 @@ def add_comment(teacher_id, progress_id, comment_text):
 
     conn.commit()
     conn.close()
+
+def remove_student_from_classroom(student_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE user
+        SET classroom_id = NULL
+        WHERE user_id = ?
+    """, (student_id,))
+
+    conn.commit()
+    conn.close()

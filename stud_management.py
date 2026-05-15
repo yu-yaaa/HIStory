@@ -6,6 +6,8 @@ from button_class import *
 from dropdown import *
 from tcher_database import get_teacher_classrooms, get_students_by_classroom
 from student_progress_overlay import run_student_progress_overlay
+from confirmation_popup import run_confirmation_popup
+from tcher_database import remove_student_from_classroom
 
 # module level
 font                 = None
@@ -16,10 +18,12 @@ classroom_name_to_id = {}
 SCROLL_SPEED         = 20
 initialized_for = None
 sort_dropdown = None
-last_sort = "Default"
+last_sort = "Sort by:Default"
 show_progress_overlay = False
 selected_student_id   = None
 selected_attention    = 0
+show_remove_popup = False
+student_to_remove = None
 
 def init(screen):
     global font, class_dropdown, sort_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected
@@ -55,7 +59,7 @@ def init(screen):
             int(screen.get_width() * 0.08) + 280,  # ← next to class dropdown
             int(screen.get_height() * 0.27),
             270, 50,
-            ["Default", "Highest Progress", "Lowest Progress", "Highest Attention", "Lowest Attention"],
+            ["Sort by:Default", "Highest Progress", "Lowest Progress", "Highest Attention", "Lowest Attention"],
             bg_color="#539CF5",
             border_color="#1B1F5B",
             text_color=(255, 255, 255),
@@ -151,7 +155,8 @@ def draw_student_card(screen, student, x, y, card_w=320, card_h=220):
 
 
 def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_h):
-    global scroll_offset, show_progress_overlay, selected_student_id, selected_attention  
+    global scroll_offset, show_progress_overlay, selected_student_id, selected_attention
+    global show_remove_popup, student_to_remove
 
     card_w  = 400
     card_h  = 210
@@ -187,7 +192,8 @@ def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_
                 selected_student_id   = student["user_id"]
                 selected_attention    = student["attention"]
             if remove_btn.is_clicked(event):
-                pass  # TODO: remove student
+                show_remove_popup = True
+                student_to_remove = student["user_id"]
 
     screen.set_clip(None)  # ← always reset clip
 
@@ -216,6 +222,7 @@ def draw_stud_manage(screen, events):
     global show_progress_overlay
     global selected_student_id
     global selected_attention
+    global show_remove_popup, student_to_remove
     init(screen)
 
     draw_background(screen)
@@ -302,6 +309,25 @@ def draw_stud_manage(screen, events):
             return "dashboard"
         class_dropdown.handle_event(event)
         sort_dropdown.handle_event(event)
+
+    if show_remove_popup:
+        result = run_confirmation_popup(
+            screen,
+            events,
+            title="Remove Student",
+            message="Remove this student from class?"
+        )
+
+        if result == "yes":
+
+            remove_student_from_classroom(student_to_remove)
+
+            show_remove_popup = False
+            student_to_remove = None
+
+        elif result == "no":
+            show_remove_popup = False
+            student_to_remove = None
 
     #show overlay ON TOP cause the dropdowns  tyrna take the spotlight
     if show_progress_overlay and selected_student_id:
