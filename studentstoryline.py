@@ -13,7 +13,7 @@ def asset_path(relative: str) -> str:
 FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
 
 
-class StoryChapterBase:
+class StoryChapterBase: 
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
         self.screen  = screen
         self.clock   = clock
@@ -74,6 +74,7 @@ class StoryChapterBase:
 
 
 class StoryChapter1(StoryChapterBase):
+    CHAPTER_ID    = "CH001"
     CLR_BG         = (15, 25, 60)
     CLR_PANEL      = (25, 38, 90, 200)
     CLR_ACCENT     = (204, 0, 0)
@@ -84,7 +85,7 @@ class StoryChapter1(StoryChapterBase):
     CLR_BTN_HOVER  = (240, 40, 40)
     CLR_BTN_BORDER = (255, 204, 0)
 
-    CHAPTER_ID    = "CH001"
+    
     CHAPTER_TITLE = "Chapter 1 – Malaysia Road to Independence"
 
     def load_assets(self):
@@ -577,6 +578,7 @@ class StoryChapter1Part3(_StoryPart):
 
 
 class StoryChapter1Full(StoryChapterBase):
+    CHAPTER_ID    = "CH001"
     def __init__(
         self,
         screen: pygame.Surface,
@@ -596,21 +598,19 @@ class StoryChapter1Full(StoryChapterBase):
         pass
 
     def _save(self, part: int, scene: int, status: str):
-        """Save current position to the database immediately."""
         save_story_progress(
-            user_id      = self._user_id,
-            current_part = part,
-            current_scene= scene,
-            status       = status,
-            score        = self.total_debate_score,
+            user_id       = self._user_id,
+            chapter_id    = self.CHAPTER_ID,   # ← add this
+            current_part  = part,
+            current_scene = scene,
+            status        = status,
+            score         = self.total_debate_score,
         )
 
     def _load_saved(self) -> dict:
-
-        saved = get_story_progress(self._user_id)
+        saved = get_story_progress(self._user_id, self.CHAPTER_ID)
         if saved is None:
             return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
-
         if saved["status"] == "Completed":
             return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
         return saved

@@ -3,7 +3,7 @@ import os
 from sys import exit
 from progress_tracking import main as launch_progress_tracking
 import session
-CURRENT_USER_ID = session.current_user["user_id"]
+
 
 from database import fetch_all_chapters, fetch_character
 from studentstoryline import get_chapter_class
@@ -295,7 +295,7 @@ def draw_carousel(mouse_pos):
 
 def launch_story():
     entry = CHARACTERS[current_character[0]]
-
+    CURRENT_USER_ID = session.current_user["user_id"]
     if entry.get("locked", False):
         _show_coming_soon()
         return

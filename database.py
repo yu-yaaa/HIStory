@@ -123,9 +123,6 @@ def grant_player_reward(player_reward_id: str, user_id: str, reward_id: str, qua
         )
         conn.commit()
 
-_STORY_CHAPTER_ID = "STORY_CH1"
-
-
 def _ensure_story_progress_columns():
     """
     Add current_part and current_scene columns to progress if they don't exist.
@@ -146,18 +143,22 @@ def _ensure_story_progress_columns():
             )
         conn.commit()
 
+def _next_progress_id(conn) -> str:
+    row = conn.execute(
+        "SELECT MAX(CAST(SUBSTR(progress_id, 2) AS INTEGER)) FROM progress "
+        "WHERE progress_id LIKE 'P%'"
+    ).fetchone()
+    next_num = (row[0] or 0) + 1
+    return f"P{next_num:03d}"
 
 def save_story_progress(
     user_id: str,
+    chapter_id: str, 
     current_part: int,     
     current_scene: int,  
     status: str,         
     score: int = 0,
 ):
-    """
-    Upsert a single progress row for the entire story arc.
-    Called every time the player advances or leaves.
-    """
     _ensure_story_progress_columns()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -165,7 +166,7 @@ def save_story_progress(
         existing = conn.execute(
             "SELECT progress_id, attempts_count FROM progress "
             "WHERE user_id = ? AND chapter_id = ?",
-            (user_id, _STORY_CHAPTER_ID),
+            (user_id, chapter_id),
         ).fetchone()
 
         if existing:
@@ -180,35 +181,29 @@ def save_story_progress(
                  WHERE user_id = ? AND chapter_id = ?
                 """,
                 (status, current_part, current_scene, score,
-                 now, user_id, _STORY_CHAPTER_ID),
+                 now, user_id, chapter_id), # ← use parameter
             )
         else:
             conn.execute(
                 """
                 INSERT INTO progress
                     (progress_id, user_id, chapter_id, status,
-                     last_accessed, attempts_count, score,
-                     current_part, current_scene)
+                    last_accessed, attempts_count, score,
+                    current_part, current_scene)
                 VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
                 """,
-                (str(uuid.uuid4()), user_id, _STORY_CHAPTER_ID,
-                 status, now, score, current_part, current_scene),
+                (_next_progress_id(conn), user_id, chapter_id,   # ← here
+                status, now, score, current_part, current_scene),
             )
         conn.commit()
 
-
-def get_story_progress(user_id: str) -> dict:
-    """
-    Return the saved story progress for user_id as a plain dict, or None.
-
-    Keys: status, current_part, current_scene, score
-    """
+def get_story_progress(user_id: str, chapter_id: str) -> dict:  # ← add this
     _ensure_story_progress_columns()
     with get_connection() as conn:
         row = conn.execute(
             "SELECT status, current_part, current_scene, score "
             "FROM progress WHERE user_id = ? AND chapter_id = ?",
-            (user_id, _STORY_CHAPTER_ID),
+            (user_id, chapter_id),          # ← use parameter
         ).fetchone()
 
     if row is None:
