@@ -8,6 +8,7 @@ import sys
 import sqlite3
 import os
 import time
+import session
 
 # ── Colours ───────────────────────────────────────────────────────────────────
 C_PURPLE_DARK   = (140,  40, 180)
@@ -33,13 +34,13 @@ C_PU_BAR_BG      = (255, 255,   0)
 C_RED_BORDER     = (255,   0,   0)
 
 # ── Fonts ─────────────────────────────────────────────────────────────────────
+_FONT_PATH = os.path.join(os.path.dirname(__file__), "Assets", "Jersey10-Regular.ttf")
+
 def _load_font(size, bold=False):
-    for name in ["Press Start 2P", "Courier New", "monospace"]:
-        try:
-            return pygame.font.SysFont(name, size, bold=bold)
-        except Exception:
-            pass
-    return pygame.font.Font(None, size)
+    try:
+        return pygame.font.Font(_FONT_PATH, size)
+    except Exception:
+        return pygame.font.Font(None, size)
 
 # ── Questions ─────────────────────────────────────────────────────────────────
 QUESTIONS = [
@@ -90,7 +91,7 @@ POWERUPS = [
 ]
 
 DB_PATH        = os.path.join(os.path.dirname(__file__), "HIStory.db")
-CURRENT_USER   = "USR003"
+CURRENT_USER   = session.current_user["user_id"]
 CHAPTER_ID     = "CH001"
 ANSWER_LETTERS = ["A", "B", "C", "D"]
 
