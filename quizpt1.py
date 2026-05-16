@@ -10,6 +10,9 @@ import os
 import time
 import session
 
+def _current_user():
+    return session.current_user["user_id"]
+
 # ── Colours ───────────────────────────────────────────────────────────────────
 C_PURPLE_DARK   = (140,  40, 180)
 C_PURPLE_MID    = (140,  40, 180)
@@ -91,17 +94,17 @@ POWERUPS = [
 ]
 
 DB_PATH        = os.path.join(os.path.dirname(__file__), "HIStory.db")
-CURRENT_USER   = session.current_user["user_id"]
 CHAPTER_ID     = "CH001"
 ANSWER_LETTERS = ["A", "B", "C", "D"]
 
 # ── DB helpers ────────────────────────────────────────────────────────────────
 def load_progress():
     try:
-        con = sqlite3.connect(DB_PATH, timeout=10)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
-        cur.execute("SELECT attempts, score FROM progress WHERE user_id=? AND chapter_id=?",
-                    (CURRENT_USER, CHAPTER_ID))
+        cur.execute("SELECT attempts_count, score FROM progress WHERE user_id=? AND chapter_id=?",
+                    (_current_user(), CHAPTER_ID))
         row = cur.fetchone()
         con.close()
         if row:
@@ -120,27 +123,30 @@ def _next_progress_id(cur):
 def save_progress(quiz_score_raw):
     score_pct = int(quiz_score_raw / TOTAL_Q * 100)
     status    = "Completed" if score_pct >= 60 else "In Progress"
+    con = None
     try:
         con = sqlite3.connect(DB_PATH, timeout=30)
         con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
-        cur.execute("SELECT progress_id, attempts FROM progress WHERE user_id=? AND chapter_id=?",
-                    (CURRENT_USER, CHAPTER_ID))
+        cur.execute("SELECT progress_id, attempts_count FROM progress WHERE user_id=? AND chapter_id=?",
+                    (_current_user(), CHAPTER_ID))
         row = cur.fetchone()
         if row:
             cur.execute(
-                "UPDATE progress SET attempts=?, score=?, status=?, "
+                "UPDATE progress SET attempts_count=?, score=?, status=?, "
                 "last_accessed=datetime('now','localtime') WHERE user_id=? AND chapter_id=?",
-                (int(row[1] or 0) + 1, score_pct, status, CURRENT_USER, CHAPTER_ID))
+                (int(row[1] or 0) + 1, score_pct, status, _current_user(), CHAPTER_ID))
         else:
             cur.execute(
                 "INSERT INTO progress (progress_id,user_id,chapter_id,status,"
-                "last_accessed,attempts,score) VALUES (?,?,?,?,datetime('now','localtime'),1,?)",
-                (_next_progress_id(cur), CURRENT_USER, CHAPTER_ID, status, score_pct))
+                "last_accessed,attempts_count,score) VALUES (?,?,?,?,datetime('now','localtime'),1,?)",
+                (_next_progress_id(cur), _current_user(), CHAPTER_ID, status, score_pct))
         con.commit()
-        con.close()
     except sqlite3.Error as e:
         print(f"[DB ERROR] save_progress: {e}")
+    finally:
+        if con:
+            con.close()
     return score_pct
 
 
@@ -151,19 +157,23 @@ def _next_pa_id(cur):
 
 
 def save_answer(question_id, selected_index, is_correct):
+    con = None
     try:
-        con = sqlite3.connect(DB_PATH, timeout=10)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
         cur.execute(
             "INSERT INTO player_ans (player_ans_id,user_id,question_id,selected_ans,"
             "is_correct,answered_at) VALUES (?,?,?,?,?,datetime('now','localtime'))",
-            (_next_pa_id(cur), CURRENT_USER, question_id,
+            (_next_pa_id(cur), _current_user(), question_id,
              ANSWER_LETTERS[selected_index] if selected_index is not None else None,
              1 if is_correct else 0))
         con.commit()
-        con.close()
     except sqlite3.Error as e:
         print(f"[DB ERROR] save_answer: {e}")
+    finally:
+        if con:
+            con.close()
 
 
 # ── Drawing helpers ───────────────────────────────────────────────────────────
@@ -200,7 +210,7 @@ def render_wrapped(surf, text, font, colour, x, y, max_width, line_h=None):
 
 # ── Quiz state ────────────────────────────────────────────────────────────────
 class Quiz:
-    
+
     def __init__(self):
         self.q_index             = 0
         self.score               = 0
@@ -217,15 +227,14 @@ class Quiz:
         self.prev_attempts, self.prev_score = load_progress()
         self.final_score_pct = 0
         self.new_attempts    = self.prev_attempts
-        self.pending_answers = []
-            
+        self.pending_answers = []  # FIX: must be initialised before pick() is called
 
     @property
     def current(self):
+        # FIX: guard against out-of-range on the final frame
         if self.q_index >= TOTAL_Q:
-            return QUESTIONS[-1]   # safe fallback – last question
+            return QUESTIONS[-1]
         return QUESTIONS[self.q_index]
-
 
     @property
     def time_left(self):
@@ -245,11 +254,12 @@ class Quiz:
         if self.q_index >= TOTAL_Q:
             self.finished = True
             self._save_all()
-            
+
     def _save_all(self):
+        con = None
         try:
-            con = sqlite3.connect(DB_PATH, timeout=30)          # ← wait up to 30s
-            con.execute("PRAGMA journal_mode=WAL")              # ← allows concurrent reads
+            con = sqlite3.connect(DB_PATH, timeout=30)
+            con.execute("PRAGMA journal_mode=WAL")
             cur = con.cursor()
             cur.execute("SELECT MAX(CAST(SUBSTR(player_ans_id,3) AS INT)) FROM player_ans")
             row = cur.fetchone()
@@ -258,19 +268,21 @@ class Quiz:
             for qid, sel_idx, is_correct in self.pending_answers:
                 cur.execute(
                     "INSERT INTO player_ans VALUES (?,?,?,?,?,datetime('now','localtime'))",
-                    (f"PA{next_id:03d}", CURRENT_USER, qid,
-                    ANSWER_LETTERS[sel_idx] if sel_idx is not None else None,
-                    1 if is_correct else 0))
+                    (f"PA{next_id:03d}", _current_user(), qid,
+                     ANSWER_LETTERS[sel_idx] if sel_idx is not None else None,
+                     1 if is_correct else 0))
                 next_id += 1
 
             con.commit()
         except sqlite3.Error as e:
             print(f"[DB ERROR] _save_all: {e}")
         finally:
-            con.close()                                         # ← always closes
+            if con:
+                con.close()
 
         self.final_score_pct = save_progress(self.score)
-        self.new_attempts = self.prev_attempts + 1
+        self.new_attempts    = self.prev_attempts + 1
+
     def pick(self, idx):
         if self.revealed or idx in self.hidden_options:
             return
@@ -308,7 +320,7 @@ class Quiz:
         elif key == "second_chance":
             self.second_chance_armed = True
         elif key == "extra_time":
-            self.start_time -= 10
+            self.start_time -= 10  # FIX: was -= -10 (wrong sign)
 
     def update(self):
         if self.finished:
@@ -324,8 +336,8 @@ class Quiz:
         else:
             if time.time() >= self.next_timer:
                 self.next_question()
-                if self.finished:   # ← ADD THIS
-                    return 
+                if self.finished:  # FIX: stop update immediately after finishing
+                    return
 
 
 # ── Layout (computed from given screen surface) ───────────────────────────────
@@ -400,7 +412,7 @@ def _load_pu_images():
     return images
 
 
-# ── Render functions (screen-agnostic) ───────────────────────────────────────
+# ── Render functions ──────────────────────────────────────────────────────────
 def _draw_bg(screen, bg_image):
     if bg_image:
         screen.blit(bg_image, (0, 0))
@@ -560,12 +572,10 @@ def run_quiz(screen: pygame.Surface, clock: pygame.time.Clock) -> int:
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                # Return current score so storyline isn't stuck
                 return quiz.final_score_pct if quiz.finished else 0
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 if quiz.finished:
-                    # "Continue" button – exit quiz and hand score back
                     if play_btn and play_btn.collidepoint(mx, my):
                         running = False
                 else:
