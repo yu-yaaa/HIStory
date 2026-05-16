@@ -113,6 +113,24 @@ def draw_progress_bar():
     draw_text(f"Progress Bar: Chapter {complete} out of {total}", x = int(screen_width* 0.33), y = int(screen_height *0.125), size = int(screen_height * 0.04))
     draw_text(f"{pct}%", int(screen_width* 0.6), int(screen_height * 0.22),size= int(screen_height * 0.03), anchor = "center")
     
+def draw_wrapped_text(surface, text, x, y, font_size, max_width, colour=(150, 150, 150), line_gap=4):
+    font = pygame.font.Font("Assets/Jersey10-Regular.ttf", font_size) 
+    words = text.split()
+    line, lines = "", []
+    for word in words:
+        test = line + word + " "
+        if font.size(test)[0] > max_width:
+            lines.append(line.strip())
+            line = word + " "
+        else:
+            line = test
+    if line:
+        lines.append(line.strip())
+
+    for i, ln in enumerate(lines):
+        surf = font.render(ln, True, colour)
+        surface.blit(surf, (x, y + i * (font_size + line_gap)))
+        
 def score_and_feedback():
     quiz_box = Box(x=int(screen_width * 0.32),
                    y=int(screen_height * 0.3),
@@ -170,11 +188,13 @@ def score_and_feedback():
                       anchor="topright")
 
         # Feedback text (smaller, grey)
-        draw_text(f"Feedback:  {feedback}",
+        draw_wrapped_text(screen,
+                  f"Feedback:  {feedback}",
                   x=cx + int(screen_width * 0.01),
                   y=cy + int(screen_height * 0.058),
-                  size=int(screen_height * 0.022),
-                  colour=grey)
+                  font_size=int(screen_height * 0.022),
+                  max_width=card_w - int(screen_width * 0.025),
+                  colour=black)
 
 def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()
