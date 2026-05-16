@@ -371,6 +371,7 @@ def run_student_mainmenu(events):
                     if btn["label"] == "Player Profile":
                         return "profile"
                     
+                    # --- DIRECT REDIRECT LOGIC ---
                     if btn["label"] == "Progress Track":
                         launch_progress_tracking()
 

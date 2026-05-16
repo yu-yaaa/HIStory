@@ -2,7 +2,6 @@ import pygame
 import sqlite3
 import os
 import session
-from arrow_button import Arrow_Button
 
 # --- Configuration & Initialization ---
 pygame.init()
@@ -46,6 +45,7 @@ bg = load_asset(PATH_BG, "Main Menu background.png", SCREEN_WIDTH, SCREEN_HEIGHT
 character_full = load_asset(PATH_CHAR, "CR001.png", target_width=200)
 character_mini = load_asset(PATH_CHAR, "CR001.png", target_width=50) 
 logo = load_asset(PATH_ICONS, "HIStory Logo.png", target_width=300)
+exit_btn = load_asset(PATH_ICONS, "Exit Button.png", target_width=150)
 
 font_main = pygame.font.SysFont("monospace", 32, bold=True)
 font_label = pygame.font.SysFont("monospace", 18, bold=True)
@@ -53,15 +53,7 @@ font_tooltip = pygame.font.SysFont("Arial", 16)
 font_explanation = pygame.font.SysFont("Arial", 14, italic=True)
 
 hover_zones = []
-back_button = Arrow_Button("left",
-                           x=int(SCREEN_WIDTH * 0.01),
-                           y=int(SCREEN_HEIGHT * 0.01),
-                           size=int(SCREEN_WIDTH * 0.05),
-                           colour=(199, 41, 38),
-                           hover_colour=(110, 11, 9),
-                           border_r=30,
-                           border_w=0,
-                           border_colour=(40, 40, 40))
+
 def get_user_progress(user_id):
     try:
         conn = sqlite3.connect('HIStory.db')
@@ -169,20 +161,25 @@ def draw_ui(stats):
             screen.blit(a_surf, (tx + 12, ty + q_surf.get_height() + 12))
             screen.blit(e_surf, (tx + 12, ty + q_surf.get_height() + a_surf.get_height() + 16))
 
-    back_button.draw(screen)
+    exit_rect = exit_btn.get_rect(center=(SCREEN_WIDTH//2, ov_y + ov_h - 50))
+    screen.blit(exit_btn, exit_rect)
+    return exit_rect
 
 def main():
     user_id = session.current_user["user_id"]
-    user_stats = get_user_progress(user_id)
+    user_stats = get_user_progress(user_id) 
     clock = pygame.time.Clock()
     running = True
     while running:
-        draw_ui(user_stats)
+        exit_r = draw_ui(user_stats)
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 running = False
-            if back_button.is_clicked(event):
-                running = False  # exits this screen; your main loop handles routing
+            if event.type == pygame.MOUSEBUTTONDOWN and exit_r.collidepoint(event.pos):
+                running = False
         pygame.display.flip()
         clock.tick(60)
-    return
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()
