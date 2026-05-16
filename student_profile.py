@@ -5,7 +5,6 @@ from login_register_base import screen,screen_height,screen_width
 from login_register_base import draw_text
 from join_class_popup import join_class_popup, popup_state
 from change_pw_popup import run_change_pw_popup
-from user_profile import ProfilePicture
 from arrow_button import Arrow_Button
 from queries import *
 from tooltip import draw_tooltip
