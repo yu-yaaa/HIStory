@@ -14,6 +14,8 @@ WHITE, GOLD, GRAY = (255, 255, 255), (255, 215, 0), (80, 80, 80)
 PROGRESS_GREEN = (50, 200, 50) 
 PROGRESS_RED = (220, 50, 50)
 TOOLTIP_BG = (35, 35, 35)
+ARROW_BG = (40, 40, 40)
+ARROW_HOVER = (70, 70, 70)
 
 # Asset Paths
 BASE_ASSETS = "assets"
@@ -29,7 +31,6 @@ def load_asset(folder, filename, target_width=None, target_height=None):
     
     img = pygame.image.load(path).convert_alpha()
     
-    # Proportional Scaling Fix
     if target_width and not target_height:
         aspect_ratio = img.get_height() / img.get_width()
         target_height = int(target_width * aspect_ratio)
@@ -39,18 +40,17 @@ def load_asset(folder, filename, target_width=None, target_height=None):
         
     return img
 
-# --- Assets (Fixed Proportions) ---
+# --- Assets ---
 bg = load_asset(PATH_BG, "Main Menu background.png", SCREEN_WIDTH, SCREEN_HEIGHT)
-# For character/buttons, we only define Width; Height is calculated automatically to prevent stretching
 character_full = load_asset(PATH_CHAR, "CR001.png", target_width=200)
 character_mini = load_asset(PATH_CHAR, "CR001.png", target_width=50) 
 logo = load_asset(PATH_ICONS, "HIStory Logo.png", target_width=300)
-exit_btn = load_asset(PATH_ICONS, "Exit Button.png", target_width=150)
 
 font_main = pygame.font.SysFont("monospace", 32, bold=True)
 font_label = pygame.font.SysFont("monospace", 18, bold=True)
 font_tooltip = pygame.font.SysFont("Arial", 16)
 font_explanation = pygame.font.SysFont("Arial", 14, italic=True)
+font_arrow_label = pygame.font.SysFont("Arial", 16, bold=True)
 
 hover_zones = []
 
@@ -89,6 +89,36 @@ def get_user_progress(user_id):
         print(f"Database Error: {e}")
         return {"score": 0, "chapters": []}
 
+def draw_back_arrow(ov_x, ov_y, mouse_pos):
+    """Draws a back arrow button in the top-left of the overlay. Returns its rect."""
+    btn_x = ov_x + 15
+    btn_y = ov_y + 15
+    btn_w, btn_h = 110, 40
+
+    btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+    is_hovered = btn_rect.collidepoint(mouse_pos)
+
+    # Button background
+    color = ARROW_HOVER if is_hovered else ARROW_BG
+    pygame.draw.rect(screen, color, btn_rect, border_radius=8)
+    pygame.draw.rect(screen, GOLD, btn_rect, 2, border_radius=8)
+
+    # Arrow triangle (pointing left)
+    arrow_cx = btn_x + 18
+    arrow_cy = btn_y + btn_h // 2
+    arrow_points = [
+        (arrow_cx - 8, arrow_cy),          # tip (leftmost)
+        (arrow_cx + 5, arrow_cy - 7),      # top-right
+        (arrow_cx + 5, arrow_cy + 7),      # bottom-right
+    ]
+    pygame.draw.polygon(screen, GOLD, arrow_points)
+
+    # "Main Menu" label
+    label = font_arrow_label.render("Main Menu", True, WHITE)
+    screen.blit(label, (btn_x + 30, btn_y + btn_h // 2 - label.get_height() // 2))
+
+    return btn_rect
+
 def draw_checkpoint_bar(x, y, width, questions, label):
     total_q = len(questions)
     correct_count = sum(1 for q in questions if q[3] == 1)
@@ -118,7 +148,6 @@ def draw_checkpoint_bar(x, y, width, questions, label):
                 "explanation": q_exp if q_exp else "No explanation."
             })
             if i == char_idx:
-                # Center character perfectly above the dot
                 cx = dot_x - (character_mini.get_width() // 2)
                 cy = y - character_mini.get_height() - 5
                 screen.blit(character_mini, (cx, cy))
@@ -127,10 +156,15 @@ def draw_ui(stats):
     screen.blit(bg, (0, 0))
     hover_zones.clear()
     ov_w, ov_h = SCREEN_WIDTH * 0.9, SCREEN_HEIGHT * 0.8
-    ov_x, ov_y = (SCREEN_WIDTH - ov_w)//2, (SCREEN_HEIGHT - ov_h)//2
+    ov_x, ov_y = (SCREEN_WIDTH - ov_w) // 2, (SCREEN_HEIGHT - ov_h) // 2
     overlay = pygame.Surface((ov_w, ov_h), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 220)) 
     screen.blit(overlay, (ov_x, ov_y))
+
+    mouse_pos = pygame.mouse.get_pos()
+
+    # Back arrow button (top-left of overlay)
+    back_rect = draw_back_arrow(ov_x, ov_y, mouse_pos)
     
     screen.blit(logo, (SCREEN_WIDTH // 2 - (logo.get_width() // 2), ov_y + 10))
     portrait_x, portrait_y = ov_x + 50, ov_y + 100
@@ -143,10 +177,9 @@ def draw_ui(stats):
     bar_x, bar_y, bar_width = portrait_x + 250, portrait_y + 100, ov_w - 450
     for chapter in stats['chapters']:
         draw_checkpoint_bar(bar_x, bar_y, bar_width, chapter['questions'], chapter['title'])
-        bar_y += 130 
+        bar_y += 130
 
     # --- Tooltip ---
-    mouse_pos = pygame.mouse.get_pos()
     for zone in hover_zones:
         if zone["rect"].collidepoint(mouse_pos):
             q_surf = font_tooltip.render(f"Q: {zone['text']}", True, WHITE)
@@ -154,16 +187,14 @@ def draw_ui(stats):
             e_surf = font_explanation.render(f"Why: {zone['explanation']}", True, (200, 200, 200))
             tw = max(q_surf.get_width(), a_surf.get_width(), e_surf.get_width()) + 25
             th = q_surf.get_height() + a_surf.get_height() + e_surf.get_height() + 25
-            tx, ty = mouse_pos[0] - tw//2, mouse_pos[1] - th - 20
+            tx, ty = mouse_pos[0] - tw // 2, mouse_pos[1] - th - 20
             pygame.draw.rect(screen, TOOLTIP_BG, (tx, ty, tw, th))
             pygame.draw.rect(screen, GOLD, (tx, ty, tw, th), 1)
             screen.blit(q_surf, (tx + 12, ty + 8))
             screen.blit(a_surf, (tx + 12, ty + q_surf.get_height() + 12))
             screen.blit(e_surf, (tx + 12, ty + q_surf.get_height() + a_surf.get_height() + 16))
 
-    exit_rect = exit_btn.get_rect(center=(SCREEN_WIDTH//2, ov_y + ov_h - 50))
-    screen.blit(exit_btn, exit_rect)
-    return exit_rect
+    return back_rect
 
 def main():
     user_id = session.current_user["user_id"]
@@ -171,15 +202,14 @@ def main():
     clock = pygame.time.Clock()
     running = True
     while running:
-        exit_r = draw_ui(user_stats)
+        back_rect = draw_ui(user_stats)
         for event in pygame.event.get():
             if event.type == pygame.QUIT or (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN and exit_r.collidepoint(event.pos):
-                running = False
+            if event.type == pygame.MOUSEBUTTONDOWN and back_rect.collidepoint(event.pos):
+                running = False  # Just exit the loop, return to caller
         pygame.display.flip()
         clock.tick(60)
-    pygame.quit()
-
+        
 if __name__ == "__main__":
     main()
