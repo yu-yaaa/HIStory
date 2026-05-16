@@ -5,6 +5,7 @@ import random
 import os
 
 from powerupdebate import PowerUpManager
+from database import fetch_debate_questions
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -13,191 +14,78 @@ def asset_path(relative: str):
 
 FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
 
-class AnswerOption:
-    def __init__(self, text: str, score: int):
-        self.text  = text
-        self.score = score
+SCORE_OVERRIDES: "dict[str, dict[str, int]]" = {
+    "QT011": {"A": -1, "B": -2, "C": +2, "D": 0},
+    "QT012": {"A": +2, "B": -2, "C": -1, "D": +1},
+    "QT013": {"A": -1, "B": 0, "C": -2, "D": +2},
+    "QT014": {"A": -1, "B": +2, "C": 0, "D": -2},
+    "QT015": {"A": +2, "B": +1, "C": -1, "D": -2},
+}
+
+_OPTION_ORDER = ["A", "B", "C", "D"]
+
+def _default_scores(correct_letter: str) -> "dict[str, int]":
+    """Assign scores relative to the correct answer's position."""
+    idx = _OPTION_ORDER.index(correct_letter.upper())
+    scores = {}
+    score_seq = [+2, +1, 0, -2]
+    for offset, score in enumerate(score_seq):
+        letter = _OPTION_ORDER[(idx + offset) % 4]
+        scores[letter] = score
+    return scores
 
 
-class DebateRound:
-    def __init__(
-        self,
-        speaker: str,    
-        dialogue: str,
-        answers: "list[AnswerOption] | None" = None,
-        is_narrative: bool = False,
-    ):
-        self.speaker      = speaker
-        self.dialogue     = dialogue
-        self.answers      = answers or []
-        self.is_narrative = is_narrative
+def load_debate_rounds_from_db(chapter_id: str) -> "list[DebateRound]":
+    """
+    Build DebateRounds by fetching questions via fetch_debate_questions()
+    from database.py. Raises RuntimeError if no quiz or questions are found.
+    """
+    _quiz_id, quiz_title, questions = fetch_debate_questions(chapter_id)
 
+    rounds: "list[DebateRound]" = []
 
-DEBATE_ROUNDS: "list[DebateRound]" = [
-    DebateRound(
+    rounds.append(DebateRound(
         speaker="Narrator",
         dialogue=(
-            "1955. The Federal Legislative Council chambers in Kuala Lumpur.\n"
-            "Tunku Abdul Rahman stands before British High Commissioner\n"
-            "Donald MacGillivray in a historic negotiation for Malayan independence."
+            f"{quiz_title}\n\n"
+            "A pivotal negotiation is about to begin.\n"
+            "Choose your arguments wisely — every word carries weight."
         ),
         is_narrative=True,
-    ),
+    ))
 
-    DebateRound(
-        speaker="Donald MacGillivray",
-        dialogue=(
-            "Tunku, Malaya is not ready for self-governance. You lack trained "
-            "administrators, a unified military, and economic stability. "
-            "Granting independence now would be reckless."
-        ),
-        answers=[
-            AnswerOption(
-                "We have capable leaders trained in your own universities. "
-                "Readiness is built through responsibility, not waiting.",
-                score=+2,
-            ),
-            AnswerOption(
-                "Perhaps we need a few more years of British guidance before "
-                "we can stand on our own.",
-                score=-1,
-            ),
-            AnswerOption(
-                "Our people have always been capable — it is colonialism "
-                "that has held us back.",
-                score=+1,
-            ),
-            AnswerOption(
-                "You are right. We will withdraw our request for independence.",
-                score=-2,
-            ),
-        ],
-    ),
+    for row in questions:
+        q_id    = row["question_id"]
+        correct = row["correct_answer"].strip().upper()
+        expl    = row["explanation"] or ""
 
-    DebateRound(
-        speaker="Tunku Abdul Rahman",
-        dialogue=(
-            "The Alliance won 51 of 52 seats in the 1955 elections. "
-            "The people have spoken clearly. How can you ignore the democratic "
-            "will of the Malayan people?"
-        ),
-        answers=[
-            AnswerOption(
-                "Democracy means nothing without institutional foundations. "
-                "Elections alone do not create a nation.",
-                score=-1,
-            ),
-            AnswerOption(
-                "A landslide victory across all communities proves we are united "
-                "and ready. The mandate is undeniable.",
-                score=+2,
-            ),
-            AnswerOption(
-                "We acknowledge the results but need time to evaluate "
-                "the full implications before committing.",
-                score=0,
-            ),
-            AnswerOption(
-                "The Alliance won simply because voters had no real alternative.",
-                score=-2,
-            ),
-        ],
-    ),
+        score_map = SCORE_OVERRIDES.get(q_id, _default_scores(correct))
 
-    DebateRound(
-        speaker="Donald MacGillivray",
-        dialogue=(
-            "What about the Communist insurgency? The Emergency is still active. "
-            "Without British troops, Malaya could fall to communist forces "
-            "within months of independence."
-        ),
-        answers=[
-            AnswerOption(
-                "We will inherit the security forces, maintain the Commonwealth "
-                "defence agreement, and fight our own battles on our own soil.",
-                score=+2,
-            ),
-            AnswerOption(
-                "That is a genuine concern. Perhaps British troops should remain "
-                "for another decade after independence.",
-                score=-2,
-            ),
-            AnswerOption(
-                "The Emergency proves we need sovereignty to address the root "
-                "causes — poverty and inequality — that fuel communism.",
-                score=+1,
-            ),
-            AnswerOption(
-                "We cannot be held responsible for every hypothetical security threat.",
-                score=-1,
-            ),
-        ],
-    ),
+        options = {
+            "A": row["option_a"],
+            "B": row["option_b"],
+            "C": row["option_c"],
+            "D": row["option_d"],
+        }
 
-    DebateRound(
-        speaker="Tunku Abdul Rahman",
-        dialogue=(
-            "Our Alliance — Malays, Chinese, and Indians — stands united. "
-            "We have forged a social contract that respects every community. "
-            "Is this not proof that Malayan leadership can unify a diverse nation?"
-        ),
-        answers=[
-            AnswerOption(
-                "Unity under political pressure is temporary. Post-independence "
-                "ethnic tensions are inevitable.",
-                score=-1,
-            ),
-            AnswerOption(
-                "Yes — this multicultural coalition is historic and demonstrates "
-                "exactly the inclusive leadership Malaya needs.",
-                score=+2,
-            ),
-            AnswerOption(
-                "The coalition is impressive, but we need more time to test "
-                "its long-term durability.",
-                score=0,
-            ),
-            AnswerOption(
-                "Ethnic unity is merely a political strategy, not a genuine social bond.",
-                score=-2,
-            ),
-        ],
-    ),
+        answers = [
+            AnswerOption(text=text, score=score_map.get(letter, 0), letter=letter)
+            for letter, text in options.items()
+            if text  # skip None / empty option_d
+        ]
 
-    DebateRound(
-        speaker="Donald MacGillivray",
-        dialogue=(
-            "Tin and rubber are your only exports. Global commodity prices are "
-            "volatile. Without British economic management, Malaya's finances "
-            "could collapse within years of independence."
-        ),
-        answers=[
-            AnswerOption(
-                "We will diversify the economy and attract foreign investment "
-                "as a sovereign nation with full treaty-making powers.",
-                score=+2,
-            ),
-            AnswerOption(
-                "Britain will still trade with us — we are your most profitable "
-                "former colony and you have every reason to see us succeed.",
-                score=+1,
-            ),
-            AnswerOption(
-                "Economic instability is a risk, so we accept continued British "
-                "fiscal oversight even after independence.",
-                score=-1,
-            ),
-            AnswerOption(
-                "You are correct. Economic concerns must come before political ones.",
-                score=-2,
-            ),
-        ],
-    ),
+        rounds.append(DebateRound(
+            speaker="British Officer",
+            dialogue=row["question_text"],
+            answers=answers,
+            explanation=expl,
+            correct_letter=correct,
+        ))
 
-    DebateRound(
+    rounds.append(DebateRound(
         speaker="Narrator",
         dialogue=(
-            "After lengthy negotiations, the British agreed to grant Malaya "
+            "After lengthy negotiations, the British agreed to grant Malaya\n"
             "independence on 31 August 1957.\n\n"
             "Tunku Abdul Rahman's persuasive arguments — built on unity,\n"
             "democracy, and a clear vision for the future — had prevailed.\n\n"
@@ -205,19 +93,45 @@ DEBATE_ROUNDS: "list[DebateRound]" = [
             "but in the chambers of reason and resolve."
         ),
         is_narrative=True,
-    ),
-]
+    ))
 
-CLR_BG         = (10,  18,  50)
-CLR_GOLD       = (255, 204,  0)
-CLR_GOLD_DIM   = (160, 110,  5)
-CLR_RED        = (200,  20, 20)
-CLR_WHITE      = (240, 240, 250)
-CLR_GREY       = (160, 170, 200)
-CLR_SCORE_POS  = ( 80, 210, 100)
-CLR_SCORE_NEG  = (220,  80,  80)
-CLR_SCORE_NEU  = (180, 180, 210)
-CLR_POWERUP    = ( 80, 200, 255)
+    return rounds
+
+class AnswerOption:
+    def __init__(self, text: str, score: int, letter: str = ""):
+        self.text   = text
+        self.score  = score
+        self.letter = letter          # "A" / "B" / "C" / "D"
+
+
+class DebateRound:
+    def __init__(
+        self,
+        speaker: str,
+        dialogue: str,
+        answers: "list[AnswerOption] | None" = None,
+        is_narrative: bool = False,
+        explanation: str = "",
+        correct_letter: str = "",
+    ):
+        self.speaker        = speaker
+        self.dialogue       = dialogue
+        self.answers        = answers or []
+        self.is_narrative   = is_narrative
+        self.explanation    = explanation
+        self.correct_letter = correct_letter
+
+
+CLR_BG        = (10,  18,  50)
+CLR_GOLD      = (255, 204,   0)
+CLR_GOLD_DIM  = (160, 110,   5)
+CLR_RED       = (200,  20,  20)
+CLR_WHITE     = (240, 240, 250)
+CLR_GREY      = (160, 170, 200)
+CLR_SCORE_POS = ( 80, 210, 100)
+CLR_SCORE_NEG = (220,  80,  80)
+CLR_SCORE_NEU = (180, 180, 210)
+CLR_EXPL      = (220, 220, 120)   # colour for explanation text
 
 ANS_COLORS = [
     {"fill": ( 30,  55, 130), "hover": ( 50,  80, 170), "border": ( 80, 130, 220)},
@@ -226,28 +140,35 @@ ANS_COLORS = [
     {"fill": ( 80,  55,  10), "hover": (120,  85,  20), "border": (220, 180,  50)},
 ]
 
-
 class DebateGame:
     _NOTIFY_DURATION = 180
 
-    def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock,
-                 user_id: str = "guest"):
-        self.screen  = screen
-        self.clock   = clock
-        self.W, self.H = screen.get_size()
-        self.user_id = user_id
+    def __init__(
+        self,
+        screen: pygame.Surface,
+        clock: pygame.time.Clock,
+        user_id: str = "guest",
+        chapter_id: str = "CH002",          # which chapter to load from DB
+    ):
+        self.screen     = screen
+        self.clock      = clock
+        self.W, self.H  = screen.get_size()
+        self.user_id    = user_id
+        self.chapter_id = chapter_id
 
         self._init_fonts()
         self._load_assets()
         self._init_ui()
 
-        # ── PowerUpManager (replaces the old homemade system) ──────────────
         self._pum = PowerUpManager(user_id=self.user_id,
                                    screen_size=(self.W, self.H))
         self._pum.load_fonts(self.font_small, self.font_hud)
-        # ───────────────────────────────────────────────────────────────────
 
-        self.rounds          = DEBATE_ROUNDS
+        # ── Load rounds from DB ──────────────────────────────────────────────
+        self.rounds = load_debate_rounds_from_db(self.chapter_id)
+        print(f"[DebateGame] Loaded {len(self.rounds)} rounds from DB.")
+        # ────────────────────────────────────────────────────────────────────
+
         self.round_index     = 0
         self.total_score     = 0
         self.running         = True
@@ -294,9 +215,15 @@ class DebateGame:
                 "Tunku\nAbdul\nRahman", (30, 60, 140)
             )
 
-        self.char_right = self._make_char_placeholder(
-            "Donald\nMac\nGillivray", (110, 25, 25)
-        )
+        try:
+            raw = pygame.image.load("Assets/characters/CR004.png").convert_alpha()
+            h = int(self.H * 0.50)
+            w = int(h * 0.55)
+            self.char_right = pygame.transform.smoothscale(raw, (w, h))
+        except Exception:
+            self.char_right = self._make_char_placeholder(
+                "British\nOfficer", (110, 25, 25)
+            )
 
     def _make_char_placeholder(self, name: str, color: tuple) -> pygame.Surface:
         w = int(self.H * 0.50 * 0.55)
@@ -363,7 +290,7 @@ class DebateGame:
         self.selected_answer = None
         self.show_result     = False
         self.result_timer    = 0
-        self._pum.reset_round_state()   # clear hint state for new question
+        self._pum.reset_round_state()
 
     def _advance_round(self):
         self.round_index += 1
@@ -462,16 +389,13 @@ class DebateGame:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
 
-            # ── PowerUpManager intercepts clicks first ──────────────────────
             activated = self._pum.handle_click(pos)
             if activated is not None:
-                # A hint was just activated — apply it immediately
                 if activated.effect == "hint":
                     current = self.rounds[self.round_index]
                     if not current.is_narrative and current.answers:
                         self._pum.apply_hint(current.answers)
-                return  # click consumed by power-up UI
-            # ───────────────────────────────────────────────────────────────
+                return
 
             if self.back_btn.collidepoint(pos):
                 self.running = False
@@ -494,21 +418,18 @@ class DebateGame:
                 rects  = self._answer_rects(current.answers)
                 for i, rect in enumerate(rects):
                     if i in hidden:
-                        continue           # greyed-out answer — not clickable
+                        continue
                     if rect.collidepoint(pos):
                         ans                  = current.answers[i]
                         self.selected_answer = ans
 
-                        # ── route score through PowerUpManager ─────────────
                         raw_delta        = ans.score
                         final_delta      = self._pum.apply_score_delta(raw_delta)
                         self.total_score += final_delta
-                        # ───────────────────────────────────────────────────
 
                         self.show_result  = True
-                        self.result_timer = 90
+                        self.result_timer = 120   # slightly longer so explanation is readable
 
-                        # award power-up on correct answer
                         if ans.score > 0:
                             self._pum.on_correct_answer()
 
@@ -532,7 +453,6 @@ class DebateGame:
             if self.result_timer == 0:
                 self._advance_round()
 
-        # tick the PowerUpManager (notification fade, etc.)
         self._pum.tick()
 
     # ── rendering ─────────────────────────────────────────────────────────────
@@ -549,10 +469,8 @@ class DebateGame:
         self._draw_back_btn()
         self._draw_hint()
 
-        # ── PowerUpManager draws the HUD strip and any open menu ────────────
         self._pum.draw_hud(self.screen)
         self._pum.draw_activation_menu(self.screen, self.mouse_pos)
-        # ────────────────────────────────────────────────────────────────────
 
     def _draw_bg(self):
         if self.bg:
@@ -564,7 +482,7 @@ class DebateGame:
             self.screen.fill(CLR_BG)
 
     def _draw_title(self):
-        text   = "Chapter 2  ·  The Road to Merdeka Debate"
+        text   = "The London Independence Debate"
         surf   = self.font_title.render(text, True, CLR_GOLD)
         shadow = self.font_title.render(text, True, (100, 65, 0))
         x = self.W // 2 - surf.get_width() // 2
@@ -598,7 +516,6 @@ class DebateGame:
              self.hud_rect.bottom + int(self.H * 0.007)),
         )
 
-        # streak info now comes from PowerUpManager
         streak_cur, streak_max = self._pum.correct_streak_info
         streak_txt = self.font_small.render(
             f"Streak: {streak_cur} / {streak_max}", True, CLR_GOLD,
@@ -613,25 +530,26 @@ class DebateGame:
         bob     = int(math.sin(self._anim_tick * 0.04) * 4)
         current = self.rounds[self.round_index]
 
-        left_speaking  = current.speaker == "Tunku Abdul Rahman"
-        right_speaking = current.speaker == "Donald MacGillivray"
+        # British Officer asks → right side bobs; Tunku (left) is slightly dimmed.
+        # During narratives both are shown at full brightness.
+        right_speaking = current.speaker == "British Officer" and not current.is_narrative
+        left_speaking  = current.is_narrative  # both "active" during narration
 
-        left_img = self.char_left if left_speaking or current.is_narrative \
+        left_img = self.char_left if left_speaking \
                    else self._dim_surface(self.char_left, 85)
-        self.screen.blit(left_img,
-                         (self.left_x, self.left_y + (bob if left_speaking else 0)))
+        self.screen.blit(left_img, (self.left_x, self.left_y))
         self._draw_name_tag(
             "Tunku Abdul Rahman",
             self.left_x, self.left_y + self.char_left.get_height(),
             self.char_left.get_width(), left_speaking,
         )
 
-        right_img = self.char_right if right_speaking or current.is_narrative \
+        right_img = self.char_right if (right_speaking or current.is_narrative) \
                     else self._dim_surface(self.char_right, 85)
         self.screen.blit(right_img,
                          (self.right_x, self.right_y + (bob if right_speaking else 0)))
         self._draw_name_tag(
-            "Donald MacGillivray",
+            "British Officer",
             self.right_x, self.right_y + self.char_right.get_height(),
             self.char_right.get_width(), right_speaking,
         )
@@ -735,15 +653,34 @@ class DebateGame:
             hov    = rect.collidepoint(self.mouse_pos) and active
             chosen = self.selected_answer is ans
 
-            # grey out hint-hidden answers
             if i in hidden:
                 DebateGame._blit_alpha_rect(self.screen, (28, 28, 55, 80), rect, 10)
                 pygame.draw.rect(self.screen, (55, 55, 75), rect, 1, border_radius=10)
                 continue
 
             if not active:
-                DebateGame._blit_alpha_rect(self.screen, (28, 28, 55, 110), rect, 10)
-                pygame.draw.rect(self.screen, (55, 55, 75), rect, 1, border_radius=10)
+                # Highlight correct answer after selection
+                is_correct = (ans.letter == current.correct_letter)
+                if is_correct and self.show_result:
+                    DebateGame._blit_alpha_rect(self.screen, (20, 90, 40, 170), rect, 10)
+                    pygame.draw.rect(self.screen, CLR_SCORE_POS, rect, 2, border_radius=10)
+                elif chosen:
+                    DebateGame._blit_alpha_rect(self.screen, (90, 20, 20, 160), rect, 10)
+                    pygame.draw.rect(self.screen, CLR_SCORE_NEG, rect, 2, border_radius=10)
+                else:
+                    DebateGame._blit_alpha_rect(self.screen, (28, 28, 55, 110), rect, 10)
+                    pygame.draw.rect(self.screen, (55, 55, 75), rect, 1, border_radius=10)
+
+                # Still render text on all options so player can read them
+                max_w  = rect.w - int(rect.w * 0.05)
+                lines  = self._wrap_text(ans.text, self.font_answer, max_w)
+                line_h = self.font_answer.get_height() + 2
+                ty     = rect.y + (rect.h - len(lines) * line_h) // 2
+                txt_clr = CLR_WHITE if (is_correct and self.show_result) else CLR_GREY
+                for ln in lines:
+                    s = self.font_answer.render(ln, True, txt_clr)
+                    self.screen.blit(s, (rect.x + int(rect.w * 0.03), ty))
+                    ty += line_h
                 continue
 
             fill_clr  = (*clr["hover"], 235) if (hov or chosen) else (*clr["fill"], 230)
@@ -761,6 +698,7 @@ class DebateGame:
                 self.screen.blit(s, (rect.x + int(rect.w * 0.03), ty))
                 ty += line_h
 
+        # ── Result overlay: score delta + explanation ──────────────────────
         if self.show_result and self.selected_answer:
             ans  = self.selected_answer
             sign = "+" if ans.score >= 0 else ""
@@ -771,7 +709,7 @@ class DebateGame:
             sc_s.set_alpha(pulse)
             self.screen.blit(
                 sc_s,
-                (self.W // 2 - sc_s.get_width() // 2, self.ans_panel_y + int(self.H * 0.01)),
+                (self.W // 2 - sc_s.get_width() // 2, self.ans_panel_y + int(self.H * 0.005)),
             )
 
             verdicts = {
@@ -785,8 +723,20 @@ class DebateGame:
             vs = self.font_hud.render(verdict, True, CLR_WHITE)
             self.screen.blit(
                 vs,
-                (self.W // 2 - vs.get_width() // 2, self.ans_panel_y + int(self.H * 0.11)),
+                (self.W // 2 - vs.get_width() // 2, self.ans_panel_y + int(self.H * 0.09)),
             )
+
+            # Show explanation from the DB
+            if current.explanation:
+                expl_lines = self._wrap_text(
+                    f"💡 {current.explanation}", self.font_small,
+                    int(self.W * 0.60),
+                )
+                ey = self.ans_panel_y + int(self.H * 0.13)
+                for ln in expl_lines:
+                    es = self.font_small.render(ln, True, CLR_EXPL)
+                    self.screen.blit(es, (self.W // 2 - es.get_width() // 2, ey))
+                    ey += self.font_small.get_height() + 2
 
     def _draw_back_btn(self):
         hov  = self.back_btn.collidepoint(self.mouse_pos)
@@ -810,9 +760,14 @@ class DebateGame:
         )
 
     def get_final_score_percentage(self) -> int:
-        MAX_SCORE = 10
-        shifted   = self.total_score + MAX_SCORE
-        percent   = int((shifted / 20) * 100)
+        total_questions = sum(1 for r in self.rounds if not r.is_narrative)
+        max_score = total_questions * 2       # every question answered perfectly
+        min_score = total_questions * -2      # every question answered worst
+        score_range = max_score - min_score
+        if score_range == 0:
+            return 100
+        shifted = self.total_score - min_score
+        percent = int((shifted / score_range) * 100)
         return max(0, min(100, percent))
 
 
@@ -823,12 +778,13 @@ if __name__ == "__main__":
         (info.current_w, info.current_h),
         pygame.FULLSCREEN | pygame.NOFRAME,
     )
-    pygame.display.set_caption("HIStory – Chapter 2 Debate (standalone test)")
+    pygame.display.set_caption("HIStory – Chapter 2 Debate")
     clock = pygame.time.Clock()
 
-    game  = DebateGame(screen, clock, user_id="test_user")
+    game  = DebateGame(screen, clock, user_id="test_user", chapter_id="CH002")
     score = game.run()
     print(f"[DebateGame] Chapter 2 complete. Final debate score: {score}")
+    print(f"[DebateGame] Score percentage: {game.get_final_score_percentage()}%")
 
     pygame.quit()
     sys.exit()
