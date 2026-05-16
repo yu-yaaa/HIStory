@@ -1,4 +1,3 @@
-
 import sqlite3
 import uuid
 import random
@@ -8,7 +7,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 CORRECT_ANSWERS_PER_REWARD = 3   
-REGEN_AMOUNT               = 2   
 DMG_REDUCE_FACTOR          = 0.5 
 HINT_ELIMINATE_COUNT       = 1 
 
@@ -39,7 +37,6 @@ class PowerUpSlot:
     @property
     def effect(self) -> str:
         n = self.reward_name.lower()
-        if "regen"  in n:                  return "regen"
         if "shield" in n:                  return "shield"
         if "damage" in n or "reduc" in n:  return "dmg_reduce"
         if "hint"   in n:                  return "hint"
@@ -135,7 +132,6 @@ class PowerUpManager:
 
         self._shield_active     = False
         self._dmg_reduce_active = False
-        self._regen_pending     = 0
         self._hint_pending      = False
         self._hint_used_this_round        = False
         self._hint_hidden_indices: list   = []
@@ -143,7 +139,6 @@ class PowerUpManager:
         self._notify_text  = ""
         self._notify_timer = 0
         self._notify_clr   = _CLR_POWERUP
-
 
         self._font_small = None
         self._font_hud   = None
@@ -164,13 +159,13 @@ class PowerUpManager:
         """
         Call once when the player picks a positive-score answer.
         Awards one random powerup (saved to DB) every CORRECT_ANSWERS_PER_REWARD
-        correct answers. Returns 0; score bonuses come through tick() instead.
+        correct answers.
         """
         self._correct_count += 1
 
         if self._correct_count >= CORRECT_ANSWERS_PER_REWARD:
-            self._correct_count = 0      # reset counter for next milestone
-            self._award_random_powerup() # writes to HIStory.db
+            self._correct_count = 0
+            self._award_random_powerup()
 
         return 0
 
@@ -223,19 +218,13 @@ class PowerUpManager:
         self._hint_hidden_indices = to_hide
         return to_hide
 
-    def tick(self) -> int:
+    def tick(self):
         """
         Call every frame in DebateGame._update().
-        Returns pending score bonus from Regenerate (usually 0).
-        Also ticks down the notification timer.
+        Ticks down the notification timer.
         """
-        bonus = self._regen_pending
-        self._regen_pending = 0
-
         if self._notify_timer > 0:
             self._notify_timer -= 1
-
-        return bonus
 
     def reset_round_state(self):
         """Call at the start of each new question to clear per-round hint state."""
@@ -435,11 +424,7 @@ class PowerUpManager:
 
         effect = slot.effect
 
-        if effect == "regen":
-            self._regen_pending = REGEN_AMOUNT
-            msg = f"Regenerate: +{REGEN_AMOUNT} score restored"
-
-        elif effect == "shield":
+        if effect == "shield":
             self._shield_active = True
             msg = "Shield active: next wrong answer ignored"
 
@@ -471,8 +456,6 @@ class PowerUpManager:
             badges.append(("Shield ON", _CLR_ACTIVE))
         if self._dmg_reduce_active:
             badges.append(("Dmg-Red ON", _CLR_POWERUP))
-        if self._regen_pending:
-            badges.append(("Regen", (120, 230, 100)))
 
         bx = int(self.W * 0.02)
         by = int(self.H * 0.74)

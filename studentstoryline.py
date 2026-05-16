@@ -167,7 +167,7 @@ class _StoryPart(StoryChapterBase):
                     self.dialogue_index += 1
                     self._ensure_slide_assets(self.dialogue_index + 1)
                 else:
-                    self.running = False   # finished all slides normally
+                    self.running = False
 
             if self.back_btn.collidepoint(mouse):
                 self._back_to_menu = True
@@ -313,7 +313,6 @@ class _StoryPart(StoryChapterBase):
 
 def _show_transition(screen, clock, screen_width, screen_height,
                      line1: str, line2: str = "", duration_ms: int = 2800):
-    """Display a full-screen transition card. Click or key to skip."""
     overlay_font = pygame.font.Font(FONT_PATH, int(screen_height * 0.06))
     sub_font     = pygame.font.Font(FONT_PATH, int(screen_height * 0.03))
     start        = pygame.time.get_ticks()
@@ -348,37 +347,29 @@ def _show_transition(screen, clock, screen_width, screen_height,
 
 
 def _run_quiz_ch1(screen, clock) -> int:
-    """Run the Chapter 1 quiz (quizpt1) and return 0-100 score."""
     return quizpt1.run_quiz(screen, clock)
 
 
 def _run_quiz_ch3(screen, clock) -> int:
-    """Run the Chapter 3 quiz (quizpt3) and return 0-100 score."""
     return quizpt3.run_quiz(screen, clock)
 
 
-def _run_debate(screen, clock) -> int:
+def _run_debate(screen, clock, user_id: str = "guest") -> int:
     """
     Run the DebateGame and return a 0-100 percentage score.
-    Max raw score = 10 (5 questions x +2).
-    Shift -10~+10 range to 0~20, then scale to 0-100.
+    user_id is passed so PowerUpManager reads/writes the correct player's inventory.
     """
-    debate = DebateGame(screen, clock)
+    debate  = DebateGame(screen, clock, user_id=user_id)   # ← user_id now passed
     debate.run()
     MAX_SCORE = 10
-    shifted   = debate.total_score + MAX_SCORE      # -10~+10  →  0~20
+    shifted   = debate.total_score + MAX_SCORE
     percent   = int((shifted / (MAX_SCORE * 2)) * 100)
-    return max(0, min(100, percent))                # clamp 0-100
+    return max(0, min(100, percent))
 
 
 def _play_story_part(screen, clock, chapter_id, chapter_title,
                      debate_score, resume_scene,
                      on_scene_change=None):
-    """
-    Play a _StoryPart and call on_scene_change(scene_index) every frame
-    so the caller can auto-save position.
-    Returns True if finished normally, False if player went to menu.
-    """
     part = _StoryPart(screen, clock,
                       chapter_id=chapter_id,
                       chapter_title=chapter_title,
@@ -403,9 +394,10 @@ def _play_story_part(screen, clock, chapter_id, chapter_title,
         pygame.display.update()
         part.clock.tick(60)
 
-    return not part._back_to_menu   # True = finished, False = went to menu
+    return not part._back_to_menu
 
-class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when user quit it will save and resume the game where user left off
+
+class StoryChapter1Full(StoryChapterBase):
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock,
                  user_id: str = "guest"):
         self._user_id = user_id
@@ -418,7 +410,7 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
 
     def update(self): pass
     def render(self):  pass
-    
+
     def _save_ch(self, chapter_id: str, part: int, scene: int,
                  status: str, score: int = 0):
         save_story_progress(
@@ -437,31 +429,26 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
         return saved
 
     def _resume_part(self) -> int:
-        """
-        Work out which of the 6 flow-parts to resume from by checking
-        which chapters are already completed in the DB.
-        """
         ch1 = get_story_progress(self._user_id, "CH001")
         ch2 = get_story_progress(self._user_id, "CH002")
         ch3 = get_story_progress(self._user_id, "CH003")
 
-        def completed(row): return row is not None and row["status"] == "Completed"
+        def completed(row):   return row is not None and row["status"] == "Completed"
         def in_progress(row): return row is not None and row["status"] != "Completed"
 
         if completed(ch1) and completed(ch2) and completed(ch3):
-            return 1   # whole game done — restart from beginning
+            return 1
         if completed(ch1) and completed(ch2) and in_progress(ch3):
-            return 5   # inside Ch3 story
+            return 5
         if completed(ch1) and completed(ch2):
-            return 5   # start Ch3
+            return 5
         if completed(ch1) and in_progress(ch2):
-            return 3   # inside Ch2 story
+            return 3
         if completed(ch1):
-            return 3   # start Ch2
+            return 3
         if in_progress(ch1):
-            return 1   # inside Ch1 story
-        return 1       # fresh start
-
+            return 1
+        return 1
 
     def run(self) -> str:
         resume_part = self._resume_part()
@@ -498,7 +485,6 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
                              "Test your knowledge of Self-Government",
                              duration_ms=2500)
             self.quiz_score_1 = _run_quiz_ch1(self.screen, self.clock)
-
             self._save_ch("CH001", 2, 0, "Completed", score=self.quiz_score_1)
 
             _show_transition(self.screen, self.clock,
@@ -534,7 +520,10 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
                              "The Debate Begins!",
                              "Convince the British – choose your arguments wisely!",
                              duration_ms=2500)
-            self.debate_score = _run_debate(self.screen, self.clock)
+
+            # ── user_id now forwarded so power-ups use the right player ──
+            self.debate_score = _run_debate(self.screen, self.clock,
+                                            user_id=self._user_id)
 
             self._save_ch("CH002", 2, 0, "Completed", score=self.debate_score)
 
@@ -571,8 +560,6 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
                          "Test your knowledge of Independence Day",
                          duration_ms=2500)
         self.quiz_score_3 = _run_quiz_ch3(self.screen, self.clock)
-
-        # Mark CH003 completed with its score
         self._save_ch("CH003", 2, 0, "Completed", score=self.quiz_score_3)
 
         final_score = (self.quiz_score_1 + self.debate_score + self.quiz_score_3) // 3
@@ -584,6 +571,7 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
                          duration_ms=4000)
 
         return "menu"
+
 
 class StoryChapter2Full(StoryChapterBase):
     CHAPTER_ID = "CH002"
@@ -643,7 +631,10 @@ class StoryChapter2Full(StoryChapterBase):
                          "The Debate Begins!",
                          "Convince the British – choose your arguments wisely!",
                          duration_ms=2500)
-        self.debate_score = _run_debate(self.screen, self.clock)
+
+        # ── user_id forwarded ────────────────────────────────────────────
+        self.debate_score = _run_debate(self.screen, self.clock,
+                                        user_id=self._user_id)
         self._save_final(score=self.debate_score)
 
         _show_transition(self.screen, self.clock,
@@ -725,12 +716,11 @@ class StoryChapter3Full(StoryChapterBase):
 
 
 CHAPTER_MAP = {
-    0: StoryChapter1Full,   # runs the full game Ch1 → Ch2 → Ch3 continuously
-    1: StoryChapter2Full,   # Ch2 only (for replaying)
-    2: StoryChapter3Full,   # Ch3 only (for replaying)
+    0: StoryChapter1Full,
+    1: StoryChapter2Full,
+    2: StoryChapter3Full,
 }
 
 
 def get_chapter_class(chapter_index: int):
-    """Return the StoryChapter class for the given carousel index, or None."""
     return CHAPTER_MAP.get(chapter_index, None)

@@ -4,7 +4,7 @@ import math
 import random
 import os
 
-from database import fetch_rewards_by_type
+from powerupdebate import PowerUpManager
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -22,7 +22,7 @@ class AnswerOption:
 class DebateRound:
     def __init__(
         self,
-        speaker: str,
+        speaker: str,    
         dialogue: str,
         answers: "list[AnswerOption] | None" = None,
         is_narrative: bool = False,
@@ -32,26 +32,8 @@ class DebateRound:
         self.answers      = answers or []
         self.is_narrative = is_narrative
 
-class PowerUp:
-    def __init__(self, db_row):
-        self.reward_id   = db_row["reward_id"]
-        self.name        = db_row["reward_name"]
-        self.description = db_row["description"]
-        self.reward_type = db_row["reward_type"]
-        self.pic_path    = db_row["reward_pic"]
-        self.active      = False
-        self.icon: "pygame.Surface | None" = None
-
-    def load_icon(self, size: int = 40):
-        """Attempt to load the reward icon from disk."""
-        try:
-            raw       = pygame.image.load(self.pic_path).convert_alpha()
-            self.icon = pygame.transform.smoothscale(raw, (size, size))
-        except Exception:
-            self.icon = None
 
 DEBATE_ROUNDS: "list[DebateRound]" = [
-#debat line and answer selection
     DebateRound(
         speaker="Narrator",
         dialogue=(
@@ -244,26 +226,32 @@ ANS_COLORS = [
     {"fill": ( 80,  55,  10), "hover": (120,  85,  20), "border": (220, 180,  50)},
 ]
 
-POWERUP_STREAK_THRESHOLD = 3
 
 class DebateGame:
     _NOTIFY_DURATION = 180
 
-    def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
-        self.screen = screen
-        self.clock  = clock
+    def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock,
+                 user_id: str = "guest"):
+        self.screen  = screen
+        self.clock   = clock
         self.W, self.H = screen.get_size()
+        self.user_id = user_id
 
         self._init_fonts()
         self._load_assets()
         self._init_ui()
-        self._init_powerup_system()
+
+        # ── PowerUpManager (replaces the old homemade system) ──────────────
+        self._pum = PowerUpManager(user_id=self.user_id,
+                                   screen_size=(self.W, self.H))
+        self._pum.load_fonts(self.font_small, self.font_hud)
+        # ───────────────────────────────────────────────────────────────────
 
         self.rounds          = DEBATE_ROUNDS
         self.round_index     = 0
         self.total_score     = 0
         self.running         = True
-        self.selected_answer: "AnswerOption | None" = None
+        self.selected_answer = None
         self.show_result     = False
         self.result_timer    = 0
         self.mouse_pos       = (0, 0)
@@ -276,33 +264,7 @@ class DebateGame:
 
         self._load_round(0)
 
-    def _init_powerup_system(self):
-        self._correct_streak       = 0
-        self._inventory: list[PowerUp] = []
-        self._powerup_notify_text  = None
-        self._powerup_notify_timer = 0
-
-        db_rewards = fetch_rewards_by_type("debate")
-        self._available_powerups: list[PowerUp] = []
-        for row in db_rewards:
-            pu = PowerUp(row)
-            pu.load_icon(size=max(int(self.H * 0.05), 32))
-            self._available_powerups.append(pu)
-
-    def _check_streak_reward(self, score: int):
-        if score > 0:
-            self._correct_streak += 1
-        else:
-            self._correct_streak = 0
-            return
-
-        if self._correct_streak >= POWERUP_STREAK_THRESHOLD:
-            self._correct_streak = 0
-            if self._available_powerups:
-                awarded = random.choice(self._available_powerups)
-                self._inventory.append(awarded)
-                self._powerup_notify_text  = f"⚡ Power-up earned: {awarded.name}!"
-                self._powerup_notify_timer = self._NOTIFY_DURATION
+    # ── fonts ────────────────────────────────────────────────────────────────
 
     def _init_fonts(self):
         self.font_title   = pygame.font.Font(FONT_PATH, int(self.H * 0.038))
@@ -312,6 +274,8 @@ class DebateGame:
         self.font_small   = pygame.font.Font(FONT_PATH, int(self.H * 0.015))
         self.font_score   = pygame.font.Font(FONT_PATH, int(self.H * 0.055))
         self.font_hud     = pygame.font.Font(FONT_PATH, int(self.H * 0.019))
+
+    # ── assets ───────────────────────────────────────────────────────────────
 
     def _load_assets(self):
         try:
@@ -326,9 +290,13 @@ class DebateGame:
             w = int(h * 0.55)
             self.char_left = pygame.transform.smoothscale(raw, (w, h))
         except Exception:
-            self.char_left = self._make_char_placeholder("Tunku\nAbdul\nRahman", (30, 60, 140))
+            self.char_left = self._make_char_placeholder(
+                "Tunku\nAbdul\nRahman", (30, 60, 140)
+            )
 
-        self.char_right = self._make_char_placeholder("Donald\nMac\nGillivray", (110, 25, 25))
+        self.char_right = self._make_char_placeholder(
+            "Donald\nMac\nGillivray", (110, 25, 25)
+        )
 
     def _make_char_placeholder(self, name: str, color: tuple) -> pygame.Surface:
         w = int(self.H * 0.50 * 0.55)
@@ -344,6 +312,8 @@ class DebateGame:
             y += s.get_height() + 4
         return surf
 
+    # ── UI layout ─────────────────────────────────────────────────────────────
+
     def _init_ui(self):
         self.left_x  = int(self.W * 0.02)
         self.left_y  = int(self.H * 0.33)
@@ -353,9 +323,7 @@ class DebateGame:
         chat_w = int(self.W * 0.55)
         chat_h = int(self.H * 0.32)
         self.chat_rect = pygame.Rect(
-            (self.W - chat_w) // 2,
-            int(self.H * 0.07),
-            chat_w, chat_h,
+            (self.W - chat_w) // 2, int(self.H * 0.07), chat_w, chat_h,
         )
 
         self.ans_panel_y = int(self.H * 0.60)
@@ -374,32 +342,28 @@ class DebateGame:
         bk_w = int(self.W * 0.13)
         bk_h = int(self.H * 0.052)
         self.back_btn = pygame.Rect(
-            int(self.W * 0.02), int(self.H * 0.02),
-            bk_w, bk_h,
+            int(self.W * 0.02), int(self.H * 0.02), bk_w, bk_h,
         )
 
         hud_w = int(self.W * 0.17)
         hud_h = int(self.H * 0.058)
         self.hud_rect = pygame.Rect(
-            self.W - hud_w - int(self.W * 0.02),
-            int(self.H * 0.02),
-            hud_w, hud_h,
+            self.W - hud_w - int(self.W * 0.02), int(self.H * 0.02), hud_w, hud_h,
         )
 
-        self.inv_x = int(self.W * 0.02)
-        self.inv_y = int(self.H * 0.88)
+    # ── round management ─────────────────────────────────────────────────────
 
     def _load_round(self, index: int):
         if index >= len(self.rounds):
             self.running = False
             return
-        r = self.rounds[index]
-        self._tw_full_text   = r.dialogue
+        self._tw_full_text   = self.rounds[index].dialogue
         self._tw_shown       = 0
         self._tw_done        = False
         self.selected_answer = None
         self.show_result     = False
         self.result_timer    = 0
+        self._pum.reset_round_state()   # clear hint state for new question
 
     def _advance_round(self):
         self.round_index += 1
@@ -407,6 +371,8 @@ class DebateGame:
             self.running = False
         else:
             self._load_round(self.round_index)
+
+    # ── helpers ───────────────────────────────────────────────────────────────
 
     def _answer_rects(self, answers):
         cols    = 2
@@ -457,6 +423,8 @@ class DebateGame:
         copy.set_alpha(alpha)
         return copy
 
+    # ── main loop ─────────────────────────────────────────────────────────────
+
     def run(self) -> int:
         self.running = True
         while self.running:
@@ -472,6 +440,8 @@ class DebateGame:
             pygame.display.update()
 
         return self.total_score
+
+    # ── event handling ────────────────────────────────────────────────────────
 
     def _handle_event(self, event: pygame.event.Event):
         if event.type == pygame.QUIT:
@@ -492,6 +462,17 @@ class DebateGame:
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             pos = event.pos
 
+            # ── PowerUpManager intercepts clicks first ──────────────────────
+            activated = self._pum.handle_click(pos)
+            if activated is not None:
+                # A hint was just activated — apply it immediately
+                if activated.effect == "hint":
+                    current = self.rounds[self.round_index]
+                    if not current.is_narrative and current.answers:
+                        self._pum.apply_hint(current.answers)
+                return  # click consumed by power-up UI
+            # ───────────────────────────────────────────────────────────────
+
             if self.back_btn.collidepoint(pos):
                 self.running = False
                 return
@@ -509,22 +490,40 @@ class DebateGame:
                 return
 
             if self._tw_done and not self.show_result and current.answers:
-                rects = self._answer_rects(current.answers)
+                hidden = self._pum.get_hint_hidden_indices(current.answers)
+                rects  = self._answer_rects(current.answers)
                 for i, rect in enumerate(rects):
+                    if i in hidden:
+                        continue           # greyed-out answer — not clickable
                     if rect.collidepoint(pos):
                         ans                  = current.answers[i]
                         self.selected_answer = ans
-                        self.total_score    += ans.score
-                        self.show_result     = True
-                        self.result_timer    = 90
-                        self._check_streak_reward(ans.score)
+
+                        # ── route score through PowerUpManager ─────────────
+                        raw_delta        = ans.score
+                        final_delta      = self._pum.apply_score_delta(raw_delta)
+                        self.total_score += final_delta
+                        # ───────────────────────────────────────────────────
+
+                        self.show_result  = True
+                        self.result_timer = 90
+
+                        # award power-up on correct answer
+                        if ans.score > 0:
+                            self._pum.on_correct_answer()
+
                         break
+
+    # ── per-frame update ──────────────────────────────────────────────────────
 
     def _update(self):
         if self.round_index >= len(self.rounds):
             return
+
         if not self._tw_done:
-            self._tw_shown = min(self._tw_shown + self._tw_speed, len(self._tw_full_text))
+            self._tw_shown = min(
+                self._tw_shown + self._tw_speed, len(self._tw_full_text)
+            )
             if self._tw_shown >= len(self._tw_full_text):
                 self._tw_done = True
 
@@ -533,13 +532,13 @@ class DebateGame:
             if self.result_timer == 0:
                 self._advance_round()
 
-        if self._powerup_notify_timer > 0:
-            self._powerup_notify_timer -= 1
-            if self._powerup_notify_timer == 0:
-                self._powerup_notify_text = None
+        # tick the PowerUpManager (notification fade, etc.)
+        self._pum.tick()
+
+    # ── rendering ─────────────────────────────────────────────────────────────
 
     def _render(self):
-        if self.round_index >= len(self.rounds):  # game already finished
+        if self.round_index >= len(self.rounds):
             return
         self._draw_bg()
         self._draw_title()
@@ -549,8 +548,11 @@ class DebateGame:
         self._draw_answer_area()
         self._draw_back_btn()
         self._draw_hint()
-        self._draw_inventory_hud()
-        self._draw_powerup_notification()
+
+        # ── PowerUpManager draws the HUD strip and any open menu ────────────
+        self._pum.draw_hud(self.screen)
+        self._pum.draw_activation_menu(self.screen, self.mouse_pos)
+        # ────────────────────────────────────────────────────────────────────
 
     def _draw_bg(self):
         if self.bg:
@@ -596,66 +598,16 @@ class DebateGame:
              self.hud_rect.bottom + int(self.H * 0.007)),
         )
 
+        # streak info now comes from PowerUpManager
+        streak_cur, streak_max = self._pum.correct_streak_info
         streak_txt = self.font_small.render(
-            f"Streak: {self._correct_streak} / {POWERUP_STREAK_THRESHOLD}",
-            True, CLR_GOLD,
+            f"Streak: {streak_cur} / {streak_max}", True, CLR_GOLD,
         )
         self.screen.blit(
             streak_txt,
             (self.hud_rect.x + (self.hud_rect.w - streak_txt.get_width()) // 2,
              self.hud_rect.bottom + int(self.H * 0.035)),
         )
-
-    def _draw_inventory_hud(self):
-        if not self._inventory:
-            return
-
-        icon_size = max(int(self.H * 0.05), 32)
-        gap       = int(self.H * 0.008)
-        x, y      = self.inv_x, self.inv_y
-
-        label = self.font_small.render("Power-ups:", True, CLR_POWERUP)
-        self.screen.blit(label, (x, y - label.get_height() - 4))
-
-        for pu in self._inventory:
-            badge_rect = pygame.Rect(x, y, icon_size, icon_size)
-            DebateGame._blit_alpha_rect(self.screen, (20, 60, 100, 200), badge_rect, radius=6)
-            pygame.draw.rect(self.screen, CLR_POWERUP, badge_rect, 2, border_radius=6)
-
-            if pu.icon:
-                self.screen.blit(pu.icon, (x, y))
-            else:
-                abbrev = self.font_small.render(pu.name[:2].upper(), True, CLR_WHITE)
-                self.screen.blit(abbrev, (
-                    x + (icon_size - abbrev.get_width())  // 2,
-                    y + (icon_size - abbrev.get_height()) // 2,
-                ))
-
-            if badge_rect.collidepoint(self.mouse_pos):
-                tip    = self.font_small.render(pu.name, True, CLR_WHITE)
-                tip_bg = pygame.Rect(x, y - tip.get_height() - 6,
-                                     tip.get_width() + 10, tip.get_height() + 4)
-                DebateGame._blit_alpha_rect(self.screen, (10, 20, 60, 220), tip_bg, radius=4)
-                self.screen.blit(tip, (tip_bg.x + 5, tip_bg.y + 2))
-
-            x += icon_size + gap
-
-    def _draw_powerup_notification(self):
-        if not self._powerup_notify_text or self._powerup_notify_timer <= 0:
-            return
-
-        if self._powerup_notify_timer > self._NOTIFY_DURATION - 30:
-            alpha = int(255 * (self._NOTIFY_DURATION - self._powerup_notify_timer) / 30)
-        elif self._powerup_notify_timer < 30:
-            alpha = int(255 * self._powerup_notify_timer / 30)
-        else:
-            alpha = 255
-
-        note = self.font_hud.render(self._powerup_notify_text, True, CLR_POWERUP)
-        note.set_alpha(alpha)
-        nx = self.W // 2 - note.get_width() // 2
-        ny = int(self.H * 0.52)
-        self.screen.blit(note, (nx, ny))
 
     def _draw_characters(self):
         bob     = int(math.sin(self._anim_tick * 0.04) * 4)
@@ -666,7 +618,8 @@ class DebateGame:
 
         left_img = self.char_left if left_speaking or current.is_narrative \
                    else self._dim_surface(self.char_left, 85)
-        self.screen.blit(left_img, (self.left_x, self.left_y + (bob if left_speaking else 0)))
+        self.screen.blit(left_img,
+                         (self.left_x, self.left_y + (bob if left_speaking else 0)))
         self._draw_name_tag(
             "Tunku Abdul Rahman",
             self.left_x, self.left_y + self.char_left.get_height(),
@@ -675,7 +628,8 @@ class DebateGame:
 
         right_img = self.char_right if right_speaking or current.is_narrative \
                     else self._dim_surface(self.char_right, 85)
-        self.screen.blit(right_img, (self.right_x, self.right_y + (bob if right_speaking else 0)))
+        self.screen.blit(right_img,
+                         (self.right_x, self.right_y + (bob if right_speaking else 0)))
         self._draw_name_tag(
             "Donald MacGillivray",
             self.right_x, self.right_y + self.char_right.get_height(),
@@ -697,7 +651,7 @@ class DebateGame:
         txt = self.font_small.render(name, True, txt_clr)
         self.screen.blit(
             txt,
-            (char_x + (char_w - txt.get_width()) // 2,
+            (char_x + (char_w - txt.get_width())  // 2,
              tag_y  + (tag_h  - txt.get_height()) // 2),
         )
 
@@ -772,12 +726,20 @@ class DebateGame:
             lbl = self.font_small.render("Choose your argument:", True, CLR_GOLD)
             self.screen.blit(lbl, (int(self.W * 0.04), self.ans_panel_y + int(self.H * 0.008)))
 
-        rects = self._answer_rects(current.answers)
+        hidden = self._pum.get_hint_hidden_indices(current.answers)
+        rects  = self._answer_rects(current.answers)
+
         for i, (rect, ans) in enumerate(zip(rects, current.answers)):
             clr    = ANS_COLORS[i % len(ANS_COLORS)]
             active = self._tw_done and not self.show_result
             hov    = rect.collidepoint(self.mouse_pos) and active
             chosen = self.selected_answer is ans
+
+            # grey out hint-hidden answers
+            if i in hidden:
+                DebateGame._blit_alpha_rect(self.screen, (28, 28, 55, 80), rect, 10)
+                pygame.draw.rect(self.screen, (55, 55, 75), rect, 1, border_radius=10)
+                continue
 
             if not active:
                 DebateGame._blit_alpha_rect(self.screen, (28, 28, 55, 110), rect, 10)
@@ -846,13 +808,14 @@ class DebateGame:
             hint,
             (self.W // 2 - hint.get_width() // 2, self.H - int(self.H * 0.024)),
         )
-    
+
     def get_final_score_percentage(self) -> int:
-        MAX_SCORE = 10          # 5 questions × +2 each
-        shifted   = self.total_score + MAX_SCORE   # shift range from -10~+10 to 0~20
-        percent   = int((shifted / 20) * 100)      # convert to 0-100
-        return max(0, min(100, percent)) 
-    
+        MAX_SCORE = 10
+        shifted   = self.total_score + MAX_SCORE
+        percent   = int((shifted / 20) * 100)
+        return max(0, min(100, percent))
+
+
 if __name__ == "__main__":
     pygame.init()
     info   = pygame.display.Info()
@@ -863,7 +826,7 @@ if __name__ == "__main__":
     pygame.display.set_caption("HIStory – Chapter 2 Debate (standalone test)")
     clock = pygame.time.Clock()
 
-    game  = DebateGame(screen, clock)
+    game  = DebateGame(screen, clock, user_id="test_user")
     score = game.run()
     print(f"[DebateGame] Chapter 2 complete. Final debate score: {score}")
 
