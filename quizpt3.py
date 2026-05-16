@@ -10,6 +10,9 @@ import os
 import time
 import session
 
+def _current_user():
+    return session.current_user["user_id"]
+
 # ── Colours ───────────────────────────────────────────────────────────────────
 C_PURPLE_DARK   = (140,  40, 180)
 C_PURPLE_MID    = (140,  40, 180)
@@ -91,7 +94,6 @@ POWERUPS = [
 ]
 
 DB_PATH        = os.path.join(os.path.dirname(__file__), "HIStory.db")
-CURRENT_USER   = session.current_user["user_id"]
 CHAPTER_ID     = "CH003"
 ANSWER_LETTERS = ["A", "B", "C", "D"]
 
@@ -101,8 +103,8 @@ def load_progress():
         con = sqlite3.connect(DB_PATH, timeout=30)
         con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
-        cur.execute("SELECT attempts, score FROM progress WHERE user_id=? AND chapter_id=?",
-                    (CURRENT_USER, CHAPTER_ID))
+        cur.execute("SELECT attempts_count, score FROM progress WHERE user_id=? AND chapter_id=?",
+                    (_current_user(), CHAPTER_ID))
         row = cur.fetchone()
         con.close()
         if row:
@@ -125,19 +127,19 @@ def save_progress(quiz_score_raw):
         con = sqlite3.connect(DB_PATH, timeout=30)
         con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
-        cur.execute("SELECT progress_id, attempts FROM progress WHERE user_id=? AND chapter_id=?",
-                    (CURRENT_USER, CHAPTER_ID))
+        cur.execute("SELECT progress_id, attempts_count FROM progress WHERE user_id=? AND chapter_id=?",
+                    (_current_user(), CHAPTER_ID))
         row = cur.fetchone()
         if row:
             cur.execute(
-                "UPDATE progress SET attempts=?, score=?, status=?, "
+                "UPDATE progress SET attempts_count=?, score=?, status=?, "
                 "last_accessed=datetime('now','localtime') WHERE user_id=? AND chapter_id=?",
-                (int(row[1] or 0) + 1, score_pct, status, CURRENT_USER, CHAPTER_ID))
+                (int(row[1] or 0) + 1, score_pct, status, _current_user(), CHAPTER_ID))
         else:
             cur.execute(
                 "INSERT INTO progress (progress_id,user_id,chapter_id,status,"
-                "last_accessed,attempts,score) VALUES (?,?,?,?,datetime('now','localtime'),1,?)",
-                (_next_progress_id(cur), CURRENT_USER, CHAPTER_ID, status, score_pct))
+                "last_accessed,attempts_count,score) VALUES (?,?,?,?,datetime('now','localtime'),1,?)",
+                (_next_progress_id(cur), _current_user(), CHAPTER_ID, status, score_pct))
         con.commit()
     except sqlite3.Error as e:
         print(f"[DB ERROR] save_progress: {e}")
@@ -160,7 +162,7 @@ def save_answer(question_id, selected_index, is_correct):
         cur.execute(
             "INSERT INTO player_ans (player_ans_id,user_id,question_id,selected_ans,"
             "is_correct,answered_at) VALUES (?,?,?,?,?,datetime('now','localtime'))",
-            (_next_pa_id(cur), CURRENT_USER, question_id,
+            (_next_pa_id(cur), _current_user(), question_id,
              ANSWER_LETTERS[selected_index] if selected_index is not None else None,
              1 if is_correct else 0))
         con.commit()
@@ -262,7 +264,7 @@ class Quiz:
             for qid, sel_idx, is_correct in self.pending_answers:
                 cur.execute(
                     "INSERT INTO player_ans VALUES (?,?,?,?,?,datetime('now','localtime'))",
-                    (f"PA{next_id:03d}", CURRENT_USER, qid,
+                    (f"PA{next_id:03d}", _current_user(), qid,
                      ANSWER_LETTERS[sel_idx] if sel_idx is not None else None,
                      1 if is_correct else 0))
                 next_id += 1
