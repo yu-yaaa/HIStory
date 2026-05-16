@@ -13,10 +13,6 @@ def asset_path(relative: str) -> str:
 FONT_PATH = asset_path("Assets/Jersey10-Regular.ttf")
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  BASE CLASS
-# ══════════════════════════════════════════════════════════════════════════════
-
 class StoryChapterBase:
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock):
         self.screen  = screen
@@ -61,11 +57,6 @@ class StoryChapterBase:
             self.clock.tick(60)
         return "menu"
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  SHARED STORY PART RENDERER
-#  Used by all chapter Full classes to display dialogue slides
-# ══════════════════════════════════════════════════════════════════════════════
 
 class _StoryPart(StoryChapterBase):
 
@@ -318,10 +309,6 @@ class _StoryPart(StoryChapterBase):
         return "done"
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  SHARED HELPERS — used by all Full chapter classes
-# ══════════════════════════════════════════════════════════════════════════════
-
 def _show_transition(screen, clock, screen_width, screen_height,
                      line1: str, line2: str = "", duration_ms: int = 2800):
     """Display a full-screen transition card. Click or key to skip."""
@@ -406,31 +393,7 @@ def _play_story_part(screen, clock, chapter_id, chapter_title,
 
     return not part._back_to_menu   # True = finished, False = went to menu
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  SAVE KEY  — the entire game is tracked under one chapter ID so the resume
-#  system knows which part (1-6) and scene the player left off at.
-#
-#  part 1 = Ch1 story      part 2 = Ch1 quiz
-#  part 3 = Ch2 story      part 4 = Ch2 debate
-#  part 5 = Ch3 story      part 6 = Ch3 quiz
-# ══════════════════════════════════════════════════════════════════════════════
-
-_SAVE_CHAPTER_ID = "CH001"   # single save key for the whole game
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  FULL GAME — one continuous run through all three chapters
-#  Flow: Ch1 story → Quiz → Ch2 story → Debate → Ch3 story → Quiz → done
-# ══════════════════════════════════════════════════════════════════════════════
-
-class StoryChapter1Full(StoryChapterBase):
-    """
-    Launched from carousel index 0.
-    Runs the complete game: Ch1 → Quiz → Ch2 → Debate → Ch3 → Quiz.
-    Saves/resumes progress so the player can quit mid-game and continue.
-    """
-
+class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when user quit it will save and resume the game where user left off
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock,
                  user_id: str = "guest"):
         self._user_id = user_id
@@ -443,38 +406,62 @@ class StoryChapter1Full(StoryChapterBase):
 
     def update(self): pass
     def render(self):  pass
-
-    # ── Save helpers ──────────────────────────────────────────────────────────
-
-    def _save(self, part: int, scene: int, status: str, score: int = 0):
+    
+    def _save_ch(self, chapter_id: str, part: int, scene: int,
+                 status: str, score: int = 0):
         save_story_progress(
             user_id       = self._user_id,
-            chapter_id    = _SAVE_CHAPTER_ID,
+            chapter_id    = chapter_id,
             current_part  = part,
             current_scene = scene,
             status        = status,
             score         = score,
         )
 
-    def _load_saved(self) -> dict:
-        saved = get_story_progress(self._user_id, _SAVE_CHAPTER_ID)
+    def _load_saved_ch(self, chapter_id: str) -> dict:
+        saved = get_story_progress(self._user_id, chapter_id)
         if saved is None or saved["status"] == "Completed":
             return {"current_part": 1, "current_scene": 0, "score": 0, "status": "Not Started"}
         return saved
 
-    # ── Main flow ─────────────────────────────────────────────────────────────
+    def _resume_part(self) -> int:
+        """
+        Work out which of the 6 flow-parts to resume from by checking
+        which chapters are already completed in the DB.
+        """
+        ch1 = get_story_progress(self._user_id, "CH001")
+        ch2 = get_story_progress(self._user_id, "CH002")
+        ch3 = get_story_progress(self._user_id, "CH003")
+
+        def completed(row): return row is not None and row["status"] == "Completed"
+        def in_progress(row): return row is not None and row["status"] != "Completed"
+
+        if completed(ch1) and completed(ch2) and completed(ch3):
+            return 1   # whole game done — restart from beginning
+        if completed(ch1) and completed(ch2) and in_progress(ch3):
+            return 5   # inside Ch3 story
+        if completed(ch1) and completed(ch2):
+            return 5   # start Ch3
+        if completed(ch1) and in_progress(ch2):
+            return 3   # inside Ch2 story
+        if completed(ch1):
+            return 3   # start Ch2
+        if in_progress(ch1):
+            return 1   # inside Ch1 story
+        return 1       # fresh start
+
 
     def run(self) -> str:
-        saved       = self._load_saved()
-        resume_part = saved["current_part"]
-        resume_scene= saved["current_scene"]
+        resume_part = self._resume_part()
 
         self.quiz_score_1 = 0
         self.debate_score = 0
         self.quiz_score_3 = 0
 
-        # ── Part 1: Chapter 1 story ───────────────────────────────────────────
         if resume_part <= 1:
+            ch1_saved    = self._load_saved_ch("CH001")
+            resume_scene = ch1_saved["current_scene"]
+
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
                              "Chapter 1 – Self-Government",
@@ -486,13 +473,12 @@ class StoryChapter1Full(StoryChapterBase):
                 chapter_id      = "CH001",
                 chapter_title   = "Chapter 1 – Self-Government",
                 debate_score    = 0,
-                resume_scene    = resume_scene if resume_part == 1 else 0,
-                on_scene_change = lambda s: self._save(1, s, "In Progress"),
+                resume_scene    = resume_scene,
+                on_scene_change = lambda s: self._save_ch("CH001", 1, s, "In Progress"),
             )
             if not finished:
                 return "menu"
 
-        # ── Part 2: Chapter 1 quiz ────────────────────────────────────────────
         if resume_part <= 2:
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
@@ -500,7 +486,8 @@ class StoryChapter1Full(StoryChapterBase):
                              "Test your knowledge of Self-Government",
                              duration_ms=2500)
             self.quiz_score_1 = _run_debate(self.screen, self.clock)
-            self._save(part=3, scene=0, status="In Progress")
+
+            self._save_ch("CH001", 2, 0, "Completed", score=self.quiz_score_1)
 
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
@@ -508,8 +495,10 @@ class StoryChapter1Full(StoryChapterBase):
                              f"Quiz score: {self.quiz_score_1}%",
                              duration_ms=2500)
 
-        # ── Part 3: Chapter 2 story ───────────────────────────────────────────
         if resume_part <= 3:
+            ch2_saved    = self._load_saved_ch("CH002")
+            resume_scene = ch2_saved["current_scene"]
+
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
                              "Chapter 2 – Independence Negotiations",
@@ -521,13 +510,12 @@ class StoryChapter1Full(StoryChapterBase):
                 chapter_id      = "CH002",
                 chapter_title   = "Chapter 2 – Independence Negotiations",
                 debate_score    = self.quiz_score_1,
-                resume_scene    = resume_scene if resume_part == 3 else 0,
-                on_scene_change = lambda s: self._save(3, s, "In Progress"),
+                resume_scene    = resume_scene,
+                on_scene_change = lambda s: self._save_ch("CH002", 1, s, "In Progress"),
             )
             if not finished:
                 return "menu"
 
-        # ── Part 4: Chapter 2 debate ──────────────────────────────────────────
         if resume_part <= 4:
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
@@ -535,7 +523,8 @@ class StoryChapter1Full(StoryChapterBase):
                              "Convince the British – choose your arguments wisely!",
                              duration_ms=2500)
             self.debate_score = _run_debate(self.screen, self.clock)
-            self._save(part=5, scene=0, status="In Progress")
+
+            self._save_ch("CH002", 2, 0, "Completed", score=self.debate_score)
 
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
@@ -543,8 +532,10 @@ class StoryChapter1Full(StoryChapterBase):
                              f"Debate score: {self.debate_score}%",
                              duration_ms=2500)
 
-        # ── Part 5: Chapter 3 story ───────────────────────────────────────────
         if resume_part <= 5:
+            ch3_saved    = self._load_saved_ch("CH003")
+            resume_scene = ch3_saved["current_scene"]
+
             _show_transition(self.screen, self.clock,
                              self.screen_width, self.screen_height,
                              "Chapter 3 – Independence Day",
@@ -556,13 +547,12 @@ class StoryChapter1Full(StoryChapterBase):
                 chapter_id      = "CH003",
                 chapter_title   = "Chapter 3 – Independence Day",
                 debate_score    = self.debate_score,
-                resume_scene    = resume_scene if resume_part == 5 else 0,
-                on_scene_change = lambda s: self._save(5, s, "In Progress"),
+                resume_scene    = resume_scene,
+                on_scene_change = lambda s: self._save_ch("CH003", 1, s, "In Progress"),
             )
             if not finished:
                 return "menu"
 
-        # ── Part 6: Chapter 3 quiz ────────────────────────────────────────────
         _show_transition(self.screen, self.clock,
                          self.screen_width, self.screen_height,
                          "Final Quiz!",
@@ -570,9 +560,10 @@ class StoryChapter1Full(StoryChapterBase):
                          duration_ms=2500)
         self.quiz_score_3 = _run_debate(self.screen, self.clock)
 
-        # ── Game complete — average all three activity scores ─────────────────
+        # Mark CH003 completed with its score
+        self._save_ch("CH003", 2, 0, "Completed", score=self.quiz_score_3)
+
         final_score = (self.quiz_score_1 + self.debate_score + self.quiz_score_3) // 3
-        self._save(part=6, scene=0, status="Completed", score=final_score)
 
         _show_transition(self.screen, self.clock,
                          self.screen_width, self.screen_height,
@@ -582,18 +573,7 @@ class StoryChapter1Full(StoryChapterBase):
 
         return "menu"
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  INDIVIDUAL CHAPTER CLASSES
-#  Used when the player selects a specific chapter from the carousel.
-#  Each owns its own DB chapter and one activity; saves under its own ID.
-# ══════════════════════════════════════════════════════════════════════════════
-
 class StoryChapter2Full(StoryChapterBase):
-    """
-    Carousel index 1 — Chapter 2 only.
-    Flow: CH002 story slides → Debate.
-    """
     CHAPTER_ID = "CH002"
 
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock,
@@ -663,10 +643,6 @@ class StoryChapter2Full(StoryChapterBase):
 
 
 class StoryChapter3Full(StoryChapterBase):
-    """
-    Carousel index 2 — Chapter 3 only.
-    Flow: CH003 story slides → Quiz.
-    """
     CHAPTER_ID = "CH003"
 
     def __init__(self, screen: pygame.Surface, clock: pygame.time.Clock,
@@ -735,10 +711,6 @@ class StoryChapter3Full(StoryChapterBase):
 
         return "menu"
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-#  CHAPTER MAP  — used by the menu carousel
-# ══════════════════════════════════════════════════════════════════════════════
 
 CHAPTER_MAP = {
     0: StoryChapter1Full,   # runs the full game Ch1 → Ch2 → Ch3 continuously
