@@ -98,7 +98,8 @@ ANSWER_LETTERS = ["A", "B", "C", "D"]
 # ── DB helpers ────────────────────────────────────────────────────────────────
 def load_progress():
     try:
-        con = sqlite3.connect(DB_PATH, timeout=10)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
         cur.execute("SELECT attempts, score FROM progress WHERE user_id=? AND chapter_id=?",
                     (CURRENT_USER, CHAPTER_ID))
@@ -121,7 +122,8 @@ def save_progress(quiz_score_raw):
     score_pct = int(quiz_score_raw / TOTAL_Q * 100)
     status    = "Completed" if score_pct >= 60 else "In Progress"
     try:
-        con = sqlite3.connect(DB_PATH, timeout=10)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
         cur.execute("SELECT progress_id, attempts FROM progress WHERE user_id=? AND chapter_id=?",
                     (CURRENT_USER, CHAPTER_ID))
@@ -137,9 +139,10 @@ def save_progress(quiz_score_raw):
                 "last_accessed,attempts,score) VALUES (?,?,?,?,datetime('now','localtime'),1,?)",
                 (_next_progress_id(cur), CURRENT_USER, CHAPTER_ID, status, score_pct))
         con.commit()
-        con.close()
     except sqlite3.Error as e:
         print(f"[DB ERROR] save_progress: {e}")
+    finally:
+        con.close()
     return score_pct
 
 
@@ -151,7 +154,8 @@ def _next_pa_id(cur):
 
 def save_answer(question_id, selected_index, is_correct):
     try:
-        con = sqlite3.connect(DB_PATH, timeout=10)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
         cur.execute(
             "INSERT INTO player_ans (player_ans_id,user_id,question_id,selected_ans,"
@@ -160,9 +164,10 @@ def save_answer(question_id, selected_index, is_correct):
              ANSWER_LETTERS[selected_index] if selected_index is not None else None,
              1 if is_correct else 0))
         con.commit()
-        con.close()
     except sqlite3.Error as e:
         print(f"[DB ERROR] save_answer: {e}")
+    finally:
+        con.close()
 
 
 # ── Drawing helpers ───────────────────────────────────────────────────────────
@@ -215,9 +220,13 @@ class Quiz:
         self.prev_attempts, self.prev_score = load_progress()
         self.final_score_pct = 0
         self.new_attempts    = self.prev_attempts
+        self.pending_answers = []  # FIX 1: initialise before pick() uses it
 
     @property
     def current(self):
+        # FIX 2: guard against out-of-range access on the last frame
+        if self.q_index >= TOTAL_Q:
+            return QUESTIONS[-1]
         return QUESTIONS[self.q_index]
 
     @property
@@ -236,14 +245,43 @@ class Quiz:
         self.second_chance_armed = False
         self.retry_flash_until   = 0.0
         if self.q_index >= TOTAL_Q:
-            self.finished        = True
-            self.final_score_pct = save_progress(self.score)
-            self.new_attempts    = self.prev_attempts + 1
+            self.finished = True
+            self._save_all()  # FIX 3: batch-save via _save_all instead of inline
+
+    def _save_all(self):
+        # FIX 4: WAL mode + finally to prevent "database is locked"
+        con = None
+        try:
+            con = sqlite3.connect(DB_PATH, timeout=30)
+            con.execute("PRAGMA journal_mode=WAL")
+            cur = con.cursor()
+            cur.execute("SELECT MAX(CAST(SUBSTR(player_ans_id,3) AS INT)) FROM player_ans")
+            row = cur.fetchone()
+            next_id = (row[0] or 0) + 1
+
+            for qid, sel_idx, is_correct in self.pending_answers:
+                cur.execute(
+                    "INSERT INTO player_ans VALUES (?,?,?,?,?,datetime('now','localtime'))",
+                    (f"PA{next_id:03d}", CURRENT_USER, qid,
+                     ANSWER_LETTERS[sel_idx] if sel_idx is not None else None,
+                     1 if is_correct else 0))
+                next_id += 1
+
+            con.commit()
+        except sqlite3.Error as e:
+            print(f"[DB ERROR] _save_all: {e}")
+        finally:
+            if con:
+                con.close()
+
+        self.final_score_pct = save_progress(self.score)
+        self.new_attempts    = self.prev_attempts + 1
 
     def pick(self, idx):
         if self.revealed or idx in self.hidden_options:
             return
         correct = (idx == self.current["answer"])
+        self.pending_answers.append((self.current["qid"], idx, correct))  # uses FIX 1
         if not correct and self.second_chance_armed:
             self.second_chance_armed = False
             self.selected            = idx
@@ -253,7 +291,6 @@ class Quiz:
         self.revealed = True
         if correct:
             self.score += 1
-        save_answer(self.current["qid"], idx, correct)
         self.next_timer = time.time() + 2.2
 
     def timeout(self):
@@ -277,7 +314,7 @@ class Quiz:
         elif key == "second_chance":
             self.second_chance_armed = True
         elif key == "extra_time":
-            self.start_time -= -10
+            self.start_time -= 10  # FIX 5: was -= -10 (wrong sign), now correctly adds 10s
 
     def update(self):
         if self.finished:
@@ -293,6 +330,8 @@ class Quiz:
         else:
             if time.time() >= self.next_timer:
                 self.next_question()
+                if self.finished:  # FIX 6: stop update immediately after finishing
+                    return
 
 
 # ── Layout ────────────────────────────────────────────────────────────────────
