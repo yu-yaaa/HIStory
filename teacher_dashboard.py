@@ -213,7 +213,7 @@ def draw_dashboard(screen,events):
             
             #profile click'
             if pfp_icon_btn.is_clicked(event):
-                return "profile"
+                return "teacher_profile"
 
     if show_create_overlay:
         result, classroom_name, class_code, class_color = run_create_classroom_overlay(screen, events)

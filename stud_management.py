@@ -8,6 +8,8 @@ from tcher_database import get_teacher_classrooms, get_students_by_classroom
 from student_progress_overlay import run_student_progress_overlay
 from confirmation_popup import run_confirmation_popup
 from tcher_database import remove_student_from_classroom
+from tcher_database import reset_all_progress_by_classroom
+from text_field import TextInput
 
 # module level
 font                 = None
@@ -24,15 +26,22 @@ selected_student_id   = None
 selected_attention    = 0
 show_remove_popup = False
 student_to_remove = None
+show_reset_warning = False  # warning when All is selected
+reset_all_btn  = None
+scroll_offset  = 0
+last_selected  = "All"
+reset_warning_timer = 0
+RESET_WARNING_DURATION = 3 * 60  # 3 seconds at 60fps
+search_field = None
 
 def init(screen):
-    global font, class_dropdown, sort_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected
+    global font, class_dropdown, sort_dropdown, flag_img, classroom_name_to_id, initialized_for, scroll_offset, last_selected, reset_all_btn, reset_all_btn, search_field
 
     current_user_id = session.current_user["user_id"]
     if initialized_for == current_user_id:
         return
     
-    initialized_for = current_user_id  # ← mark whom initialized for
+    initialized_for = current_user_id  # mark whom initialized for
     scroll_offset        = 0
     last_selected        = "All"
 
@@ -66,10 +75,31 @@ def init(screen):
             hover_color="#347ED9",
         ) 
 
+    reset_all_btn = Button("Reset Class Progress",
+                       int(screen.get_width() * 0.08) + 800,
+                       int(screen.get_height() * 0.27),
+                       220, 50,
+                       (220, 50, 50), (180, 30, 30), black,
+                       border_r=10, border_w=3,
+                       font_size=22, font_color=(255,255,255))
+    
+    search_field = TextInput(
+                    int(screen.get_width() * 0.08) + 560,
+                    int(screen.get_height() * 0.27),
+                    220, 50,
+                    color_active=(255,255,255),
+                    colour_inactive=(240, 240, 240),
+                    font_size=24,
+                    border_color="#1B1F5B",
+                    border_width=3
+    )
+
     flag_img = pygame.image.load("Assets/flag_deco.png").convert_alpha()
     flag_img = pygame.transform.scale(flag_img, (screen.get_width(), flag_img.get_height()))
 
 def get_bar_color(pct):
+    if pct is None:
+        return (150, 150, 150)  # grey — no data
     if pct > 50:
         return "#00FF1E"
     elif pct > 30:
@@ -120,16 +150,22 @@ def draw_student_card(screen, student, x, y, card_w=320, card_h=220):
 
     # attention bar
     draw_text(screen, "Avg. Attention",
-              bar_x, y + 112, colour=white, size=22)
+            bar_x, y + 112, colour=white, size=22)
     att_bg   = pygame.Rect(bar_x + label_w, y + 110, bar_w, 26)
+
+    # ← handle None before calculating fill
+    att_pct  = student["attention"] if student["attention"] is not None else 0
     att_fill = pygame.Rect(bar_x + label_w, y + 110,
-                           int(bar_w * student["attention"] / 100), 26)
+                        int(bar_w * att_pct / 100), 26)
+
     pygame.draw.rect(screen, "#FFECD2", att_bg,   border_radius=13)
     pygame.draw.rect(screen, get_bar_color(student["attention"]), att_fill, border_radius=13)
     pygame.draw.rect(screen, black, att_bg, width=3, border_radius=13)
-    draw_text(screen, f"{student['attention']}%",
-              att_bg.centerx, att_bg.centery,
-              colour=black, size=20, anchor="center")
+
+    # show N/A if no data
+    draw_text(screen, f"{student['attention']}%" if student["attention"] is not None else "N/A",
+            att_bg.centerx, att_bg.centery,
+            colour=black, size=20, anchor="center")
 
     # buttons
     btn_y  = y + card_h - 58
@@ -218,11 +254,9 @@ def draw_student_cards(screen, students, events, start_x, start_y, area_w, area_
 
 def draw_stud_manage(screen, events):
     global students, scroll_offset, last_selected
-    global students, scroll_offset, last_selected
-    global show_progress_overlay
-    global selected_student_id
-    global selected_attention
+    global show_progress_overlay, selected_student_id, selected_attention
     global show_remove_popup, student_to_remove
+    global show_reset_warning, reset_warning_timer  #  add reset_warning_timer
     init(screen)
 
     draw_background(screen)
@@ -260,6 +294,21 @@ def draw_stud_manage(screen, events):
                       tooltip="Back to dashboard")
     back_btn.draw(screen)
 
+    # labels
+    draw_text(screen, "Filter by Class:",
+              int(screen.get_width() * 0.08),
+              int(screen.get_height() * 0.24),
+              (255, 255, 255), size=28)
+
+    draw_text(screen, "Sort by:",
+              int(screen.get_width() * 0.08) + 280,
+              int(screen.get_height() * 0.24),
+              (255, 255, 255), size=28)
+
+    draw_text(screen, "Search Student:",
+              int(screen.get_width() * 0.08) + 560,
+              int(screen.get_height() * 0.24),
+              (255, 255, 255), size=28)
 
     # fetch students — reset scroll if filter changed
     selected = class_dropdown.selected
@@ -268,25 +317,29 @@ def draw_stud_manage(screen, events):
         last_selected = selected
 
     classroom_id = "All" if selected == "All" else classroom_name_to_id.get(selected, "All")
-    students = get_students_by_classroom(classroom_id, session.current_user["user_id"])  #pass teacher_id
+    students = get_students_by_classroom(classroom_id, session.current_user["user_id"])
 
-    #sort by dropdown
+    # apply search filter
+    search_query = search_field.get_text().strip().lower()
+    if search_query:
+        students = [s for s in students if search_query in s["username"].lower()]
+
+    # apply sort
     sort_selected = sort_dropdown.selected
     if sort_selected == "Highest Progress":
         students.sort(key=lambda s: s["progress"], reverse=True)
     elif sort_selected == "Lowest Progress":
         students.sort(key=lambda s: s["progress"])
     elif sort_selected == "Highest Attention":
-        students.sort(key=lambda s: s["attention"], reverse=True)
+        students.sort(key=lambda s: s["attention"] if s["attention"] is not None else -1, reverse=True)
     elif sort_selected == "Lowest Attention":
-        students.sort(key=lambda s: s["attention"])
-    #default - no sorting
+        students.sort(key=lambda s: s["attention"] if s["attention"] is not None else 101)
 
     # scrollable card area
     cards_start_x = int(screen.get_width() * 0.12)
     cards_start_y = int(screen.get_height() * 0.38)
     cards_area_w  = int(screen.get_width() * 0.8)
-    cards_area_h  = int(screen.get_height() * 0.58)  # ← controls how tall the scroll area is
+    cards_area_h  = int(screen.get_height() * 0.58)
 
     if students:
         draw_student_cards(screen, students, events,
@@ -297,39 +350,63 @@ def draw_stud_manage(screen, events):
                   screen.get_width() // 2,
                   int(screen.get_height() * 0.5),
                   (255, 255, 255), size=32, anchor="center")
-        
 
-    
+    # draw dropdowns and search last so they appear on top
     class_dropdown.draw(screen)
     sort_dropdown.draw(screen)
+    search_field.draw(screen)
+    reset_all_btn.draw(screen)
 
-    # events — back button and dropdown
+    # warning message
+    if show_reset_warning:
+        reset_warning_timer -= 1
+        if reset_warning_timer <= 0:
+            show_reset_warning = False
+        else:
+            warn_bg = pygame.Rect(
+                int(screen.get_width() * 0.08) + 800,
+                int(screen.get_height() * 0.35),
+                280, 50
+            )
+            pygame.draw.rect(screen, (255, 200, 0), warn_bg, border_radius=10)
+            pygame.draw.rect(screen, black, warn_bg, width=2, border_radius=10)
+            draw_text(screen, "Please select a class first!",
+                      warn_bg.centerx, warn_bg.centery,
+                      colour=black, size=18, anchor="center")
+
+    # events
     for event in events:
         if back_btn.is_clicked(event):
             return "dashboard"
         class_dropdown.handle_event(event)
         sort_dropdown.handle_event(event)
+        search_field.handle_event(event)
+
+        if reset_all_btn.is_clicked(event):
+            if selected == "All":
+                show_reset_warning = True
+                reset_warning_timer = RESET_WARNING_DURATION
+            else:
+                show_reset_warning = False
+                classroom_id = classroom_name_to_id.get(selected)
+                if classroom_id:
+                    reset_all_progress_by_classroom(classroom_id)
+                    students = get_students_by_classroom(classroom_id, session.current_user["user_id"])
 
     if show_remove_popup:
         result = run_confirmation_popup(
-            screen,
-            events,
+            screen, events,
             title="Remove Student",
             message="Remove this student from class?"
         )
-
         if result == "yes":
-
             remove_student_from_classroom(student_to_remove)
-
             show_remove_popup = False
             student_to_remove = None
-
         elif result == "no":
             show_remove_popup = False
             student_to_remove = None
 
-    #show overlay ON TOP cause the dropdowns  tyrna take the spotlight
     if show_progress_overlay and selected_student_id:
         result = run_student_progress_overlay(
             screen, events,
@@ -337,6 +414,6 @@ def draw_stud_manage(screen, events):
             selected_attention
         )
         if result == "close":
-            show_progress_overlay = False   
+            show_progress_overlay = False
 
     return None

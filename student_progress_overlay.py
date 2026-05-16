@@ -2,7 +2,7 @@ import pygame
 from img_button import ImageButton
 from button_class import Button
 from text_field import TextInput
-from tcher_database import get_student_progress_detail, add_comment
+from tcher_database import get_student_progress_detail, add_comment, unlock_chapter, reset_chapter_progress, lock_chapter
 import session
 
 # module level
@@ -18,7 +18,6 @@ yellow = (253, 199, 44)
 current_student_id  = None
 student_data        = None
 comment_fields      = {}   #TextINput for comments
-dots_open           = {}   # chapter_id bool (... menu open)
 scroll_offset       = 0
 SCROLL_SPEED        = 20
 initialized         = False
@@ -34,7 +33,7 @@ book_icon_img = None
 send_icon_img = None
 
 def init(screen, student_id):
-    global current_student_id, student_data, comment_fields, dots_open
+    global current_student_id, student_data, comment_fields
     global scroll_offset, initialized, screen_width, screen_height
     global box_w, box_h, box_x, box_y, x_btn
 
@@ -44,7 +43,6 @@ def init(screen, student_id):
 
     current_student_id = student_id
     scroll_offset      = 0
-    dots_open          = {}
     initialized        = True
 
     screen_width  = screen.get_width()
@@ -86,8 +84,14 @@ def draw_text(surface, text, x, y, colour=black, size=26, anchor="topleft"):
     else:                     r.topleft  = (x, y)
     surface.blit(s, r)
 
-def get_attention_label(attention_pct):
-    if attention_pct > 70:
+def get_attention_label(attention_pct, status):
+    # only show for chapters that have been attempted
+    if status in ("Locked", "Unlocked"):
+        return "N/A", (150, 150, 150)
+    
+    if attention_pct is None:
+        return "N/A", (150, 150, 150)
+    elif attention_pct > 70:
         return "Good",    (0, 200, 100)
     elif attention_pct > 40:
         return "Average", (255, 200, 0)
@@ -122,6 +126,7 @@ def draw_progress_bar(screen, x, y, w, h, pct, color=(0, 200, 100)):
     pygame.draw.rect(screen, black,           bg,   width=2, border_radius=h//2)
 
 def draw_chapter_card(screen, chapter, cx, card_y, card_w, card_h, events, attention_pct):
+    global student_data  # ← needed so unlock and comment refresh can update it
     is_locked    = chapter["status"] == "Locked"
     header_color = grey if is_locked else purple
 
@@ -153,9 +158,6 @@ def draw_chapter_card(screen, chapter, cx, card_y, card_w, card_h, events, atten
         title = title[:17] + "…"
     draw_text(screen, title, cx + 55, card_y + 16, colour=white, size=22)
 
-    # dots button
-    dots_rect = pygame.Rect(cx + card_w - 35, card_y + 14, 30, 30)
-    draw_text(screen, "...", dots_rect.x, dots_rect.y, colour=white, size=22)
 
     # body content
     body_y   = card_y + 65
@@ -168,11 +170,12 @@ def draw_chapter_card(screen, chapter, cx, card_y, card_w, card_h, events, atten
     draw_text(screen, f"Latest Score: {chapter['score']}",
               cx + 15, body_y + line_gap * 2, size=20)
 
-    att_label, att_color = get_attention_label(attention_pct)
+    att_label, att_color = get_attention_label(attention_pct, chapter["status"])
+
     draw_text(screen, "Attention:",
-              cx + 15, body_y + line_gap * 3, size=20)
+            cx + 15, body_y + line_gap * 3, size=20)
     draw_text(screen, att_label,
-              cx + 105, body_y + line_gap * 3, colour=att_color, size=20)
+            cx + 105, body_y + line_gap * 3, colour=att_color, size=20)
 
     # divider before comment section
     comment_y = body_y + line_gap * 3 + 35
@@ -237,51 +240,60 @@ def draw_chapter_card(screen, chapter, cx, card_y, card_w, card_h, events, atten
                         field.text = ""
                         student_data.update(
                             get_student_progress_detail(current_student_id))
+    
+    # action buttons at bottom of card
+    btn_size = 32
+    btn_x    = cx + card_w - btn_size - 8
+    btn_gap  = 8
 
-                if dots_rect.collidepoint(event.pos):
-                    cid = chapter["chapter_id"]
-                    dots_open[cid] = not dots_open.get(cid, False)
-
-    # dots menu
-    cid = chapter["chapter_id"]
-    if dots_open.get(cid, False):
-        menu_x = cx + card_w - 145
-        menu_y = card_y + 50
-
-        reset_rect   = pygame.Rect(menu_x, menu_y,      135, 35)
-        disable_rect = pygame.Rect(menu_x, menu_y + 42, 135, 35)
-
-        pygame.draw.rect(screen, (220, 50, 50), reset_rect,   border_radius=18)
-        pygame.draw.rect(screen, (220, 50, 50), disable_rect, border_radius=18)
-        draw_text(screen, "Reset Progress",
-                  reset_rect.centerx, reset_rect.centery,
-                  colour=white, size=18, anchor="center")
-        draw_text(screen, "Disable Chapter",
-                  disable_rect.centerx, disable_rect.centery,
-                  colour=white, size=18, anchor="center")
-
-        for event in events:
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if reset_rect.collidepoint(event.pos):
-                    dots_open[cid] = False
-                if disable_rect.collidepoint(event.pos):
-                    dots_open[cid] = False
-
-    # unlock button for locked chapters
     if is_locked:
-        unlock_rect = pygame.Rect(cx + card_w // 2 - 75,
-                                  card_y + 42, 150, 35)
-        pygame.draw.rect(screen, (0, 180, 100), unlock_rect, border_radius=18)
-        draw_text(screen, "Unlock Chapter",
-                  unlock_rect.centerx, unlock_rect.centery,
-                  colour=white, size=18, anchor="center")
+        unlock_btn = ImageButton(
+            "Assets/icons/unlock.png",
+            btn_x, body_y,
+            btn_size=btn_size, icon_size=22,
+            color=(0, 180, 100), hover_color=(0, 150, 80),
+            border_color=black, border_r=10, border_w=2,
+            icon_color=white, tooltip="Unlock Chapter"
+        )
+        unlock_btn.draw(screen)
 
         for event in events:
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if unlock_rect.collidepoint(event.pos):
-                    pass  # TODO: unlock chapter
+            if unlock_btn.is_clicked(event):
+                unlock_chapter(current_student_id, chapter["chapter_id"])
+                student_data = get_student_progress_detail(current_student_id)
+                return card_rect, ("unlock", chapter["chapter_id"])
+    else:
+        reset_btn = ImageButton(
+            "Assets/icons/reset.png",
+            btn_x, body_y,
+            btn_size=btn_size, icon_size=22,
+            color=(255, 100, 0), hover_color=(200, 70, 0),
+            border_color=black, border_r=10, border_w=2,
+            icon_color=white, tooltip="Reset Progress"
+        )
+        disable_btn = ImageButton(
+            "Assets/icons/lock.png",
+            btn_x, body_y + btn_size + btn_gap,
+            btn_size=btn_size, icon_size=22,
+            color=(220, 50, 50), hover_color=(180, 30, 30),
+            border_color=black, border_r=10, border_w=2,
+            icon_color=white, tooltip="Disable Chapter"
+        )
+        reset_btn.draw(screen)
+        disable_btn.draw(screen)
 
-    return card_rect
+        for event in events:
+            if reset_btn.is_clicked(event):
+                reset_chapter_progress(current_student_id, chapter["chapter_id"])
+                student_data = get_student_progress_detail(current_student_id)
+                return card_rect, ("reset", chapter["chapter_id"])
+            if disable_btn.is_clicked(event):
+                lock_chapter(current_student_id, chapter["chapter_id"])
+                student_data = get_student_progress_detail(current_student_id)
+                return card_rect, ("lock", chapter["chapter_id"])   
+
+    return card_rect, None
+
 
 
 def run_student_progress_overlay(screen, events, student_id, attention_pct):
@@ -387,7 +399,10 @@ def run_student_progress_overlay(screen, events, student_id, attention_pct):
         if card_y + card_h < cards_area_y or card_y > cards_area_y + cards_area_h:
             continue
 
-        draw_chapter_card(screen, chapter, cx, card_y, card_w, card_h, events, attention_pct)
+        card_rect, action = draw_chapter_card(screen, chapter, cx, card_y, card_w, card_h, events, attention_pct)
+
+        if action and action[0] == "unlock":
+            student_data = get_student_progress_detail(current_student_id)
 
     screen.set_clip(None)
 
@@ -408,9 +423,6 @@ def run_student_progress_overlay(screen, events, student_id, attention_pct):
             if clip_rect.collidepoint(pygame.mouse.get_pos()):
                 scroll_offset -= event.y * SCROLL_SPEED
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            for cid in list(dots_open.keys()):
-                dots_open[cid] = False
 
         if x_btn.is_clicked(event):
             return "close"

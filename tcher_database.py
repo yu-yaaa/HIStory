@@ -162,8 +162,12 @@ def get_students_by_classroom(classroom_id, teacher_id):
         completed      = row[3] or 0
         minigame_count = row[4] or 0
         progress_pct   = int((completed / TOTAL_CHAPTERS) * 100)
-        deduction      = minigame_count * 10
-        attention_pct  = max(0, 100 - deduction)
+
+        if minigame_count == 0 and completed == 0:
+            attention_pct = None  # no attempts yet, no data
+        else:
+            deduction     = minigame_count * 10
+            attention_pct = max(0, 100 - deduction)
 
         students.append({
             "user_id":         row[0],
@@ -179,7 +183,6 @@ def get_student_progress_detail(student_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # get student info + classroom name
     cursor.execute("""
         SELECT u.username, u.profile_picture, c.class_name
         FROM user u
@@ -188,7 +191,6 @@ def get_student_progress_detail(student_id):
     """, (student_id,))
     student_info = cursor.fetchone()
 
-    # get progress per chapter
     cursor.execute("""
         SELECT 
             ch.chapter_id,
@@ -205,7 +207,6 @@ def get_student_progress_detail(student_id):
     """, (student_id,))
     chapters = cursor.fetchall()
 
-    # get latest comment per chapter progress
     cursor.execute("""
         SELECT p.chapter_id, cm.comment_text, cm.sent_at, u.username
         FROM comment cm
@@ -218,11 +219,10 @@ def get_student_progress_detail(student_id):
 
     conn.close()
 
-    # map latest comment per chapter
     comments = {}
     for row in comments_raw:
         chapter_id = row[0]
-        if chapter_id not in comments:  # only keep latest
+        if chapter_id not in comments:
             comments[chapter_id] = {
                 "text":     row[1],
                 "sent_at":  row[2],
@@ -278,3 +278,140 @@ def remove_student_from_classroom(student_id):
 
     conn.commit()
     conn.close()
+
+def unlock_chapter(user_id, chapter_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # check if progress record already exists
+    cursor.execute("""
+        SELECT progress_id FROM progress
+        WHERE user_id = ? AND chapter_id = ?
+    """, (user_id, chapter_id))
+    
+    existing = cursor.fetchone()
+    
+    if existing:
+        # update status to Unlocked if it exists
+        cursor.execute("""
+            UPDATE progress
+            SET status = 'Unlocked'
+            WHERE user_id = ? AND chapter_id = ?
+        """, (user_id, chapter_id))
+    else:
+        # create new progress record
+        cursor.execute("SELECT COUNT(*) FROM progress")
+        count = cursor.fetchone()[0]
+        progress_id = f"P{str(count + 1).zfill(3)}"
+
+        from datetime import datetime
+        cursor.execute("""
+            INSERT INTO progress (progress_id, user_id, chapter_id, status, last_accessed, attempts_count, score)
+            VALUES (?, ?, ?, 'Unlocked', ?, 0, 0)
+        """, (progress_id, user_id, chapter_id, datetime.now()))
+
+    conn.commit()
+    conn.close()
+
+def reset_chapter_progress(user_id, chapter_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE progress
+        SET status = 'Unlocked',
+            score = 0,
+            attempts_count = 0
+        WHERE user_id = ? AND chapter_id = ?
+    """, (user_id, chapter_id))
+    
+    conn.commit()
+    conn.close()
+
+def lock_chapter(user_id, chapter_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE progress
+        SET status = 'Locked'
+        WHERE user_id = ? AND chapter_id = ?
+    """, (user_id, chapter_id))
+    
+    conn.commit()
+    conn.close()
+
+def reset_all_progress_by_classroom(classroom_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE progress
+        SET status = 'Locked',
+            score = 0,
+            attempts_count = 0
+        WHERE user_id IN (
+            SELECT user_id FROM user
+            WHERE classroom_id = ? AND user_role = 'student'
+        )
+        AND chapter_id != (
+            SELECT chapter_id FROM chapter
+            ORDER BY chapter_order ASC LIMIT 1
+        )
+    """, (classroom_id,))
+
+    # first chapter stays Unlocked so students can still start
+    cursor.execute("""
+        UPDATE progress
+        SET status = 'Unlocked',
+            score = 0,
+            attempts_count = 0
+        WHERE user_id IN (
+            SELECT user_id FROM user
+            WHERE classroom_id = ? AND user_role = 'student'
+        )
+        AND chapter_id = (
+            SELECT chapter_id FROM chapter
+            ORDER BY chapter_order ASC LIMIT 1
+        )
+    """, (classroom_id,))
+
+    conn.commit()
+    conn.close()
+
+def get_teacher_profile_info(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT username, email, profile_picture
+        FROM user
+        WHERE user_id = ?
+    """, (user_id,))
+    info = cursor.fetchone()
+    
+    cursor.execute("""
+        SELECT c.class_name, c.classroom_id,
+               COUNT(u.user_id) as student_count
+        FROM classroom c
+        LEFT JOIN user u ON u.classroom_id = c.classroom_id
+            AND u.user_role = 'student'
+        WHERE c.user_id = ?
+        GROUP BY c.classroom_id
+    """, (user_id,))
+    classes = cursor.fetchall()
+    
+    conn.close()
+    return {
+        "username":        info[0] if info else "Unknown",
+        "email":           info[1] if info else "",
+        "profile_picture": info[2] if info else None,
+        "classes": [
+            {
+                "class_name":    row[0],
+                "classroom_id":  row[1],
+                "student_count": row[2]
+            }
+            for row in classes
+        ]
+    }
