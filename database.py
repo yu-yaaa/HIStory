@@ -82,6 +82,15 @@ def fetch_rewards_by_type(reward_type: str) -> list:
             "SELECT * FROM reward WHERE reward_type = ? OR reward_type = 'both'",
             (reward_type,)
         ).fetchall()
+        
+def is_chapter_completed(user_id: str, chapter_id: str) -> bool:
+    """Returns True if the user has completed this chapter."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT status FROM progress WHERE user_id = ? AND chapter_id = ?",
+            (user_id, chapter_id)
+        ).fetchone()
+    return row is not None and row["status"] == "Completed"
 
 def fetch_progress(user_id: str, chapter_id: str):
     with get_connection() as conn:

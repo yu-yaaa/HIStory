@@ -521,6 +521,8 @@ class DebateGame:
                         break
 
     def _update(self):
+        if self.round_index >= len(self.rounds):
+            return
         if not self._tw_done:
             self._tw_shown = min(self._tw_shown + self._tw_speed, len(self._tw_full_text))
             if self._tw_shown >= len(self._tw_full_text):
@@ -537,6 +539,8 @@ class DebateGame:
                 self._powerup_notify_text = None
 
     def _render(self):
+        if self.round_index >= len(self.rounds):  # game already finished
+            return
         self._draw_bg()
         self._draw_title()
         self._draw_hud()
@@ -593,7 +597,7 @@ class DebateGame:
         )
 
         streak_txt = self.font_small.render(
-            f"🔥 Streak: {self._correct_streak} / {POWERUP_STREAK_THRESHOLD}",
+            f"Streak: {self._correct_streak} / {POWERUP_STREAK_THRESHOLD}",
             True, CLR_GOLD,
         )
         self.screen.blit(
@@ -842,7 +846,13 @@ class DebateGame:
             hint,
             (self.W // 2 - hint.get_width() // 2, self.H - int(self.H * 0.024)),
         )
-
+    
+    def get_final_score_percentage(self) -> int:
+        MAX_SCORE = 10          # 5 questions × +2 each
+        shifted   = self.total_score + MAX_SCORE   # shift range from -10~+10 to 0~20
+        percent   = int((shifted / 20) * 100)      # convert to 0-100
+        return max(0, min(100, percent)) 
+    
 if __name__ == "__main__":
     pygame.init()
     info   = pygame.display.Info()

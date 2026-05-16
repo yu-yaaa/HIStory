@@ -5,7 +5,7 @@ from progress_tracking import main as launch_progress_tracking
 import session
 
 
-from database import fetch_all_chapters, fetch_character
+from database import fetch_all_chapters, fetch_character, is_chapter_completed
 from studentstoryline import get_chapter_class
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -44,13 +44,18 @@ logo_scaled = pygame.transform.smoothscale(logo, (logo_width, logo_height))
 
 CHAPTER_CHARACTER_MAP = {
     "CH001": "CR001",
+    "CH002": "CR001",
+    "CH003": "CR001",
 }
 
 _db_chapters = fetch_all_chapters()
 
 
 def _build_carousel_entries():
-    entries = []
+    # Get the current logged-in user
+    user_id = session.current_user["user_id"]
+
+    entries        = []
     carousel_index = 0
 
     for chapter in _db_chapters:
@@ -59,19 +64,29 @@ def _build_carousel_entries():
         if ch_id not in CHAPTER_CHARACTER_MAP:
             continue
 
+        # CH001 is always unlocked
+        # CH002 unlocks only when CH001 is Completed
+        # CH003 unlocks only when CH002 is Completed
+        if ch_id == "CH001":
+            locked = False
+        elif ch_id == "CH002":
+            locked = not is_chapter_completed(user_id, "CH001")
+        elif ch_id == "CH003":
+            locked = not is_chapter_completed(user_id, "CH002")
+        else:
+            locked = True   # future chapters always locked
+
+        # Also lock if no Python class exists yet
         has_class = get_chapter_class(carousel_index) is not None
-        locked    = not has_class
+        if not has_class:
+            locked = True
 
         if not locked:
             char_row  = fetch_character(CHAPTER_CHARACTER_MAP[ch_id])
             char_name = char_row["name"] if char_row else chapter["title"]
-            if char_row:
-                char_id = char_row["character_id"]
-                asset = f"Assets/characters/{char_id}.png"
-            else:
-                asset = None
+            asset     = f"Assets/characters/{char_row['character_id']}.png" if char_row else None
         else:
-            char_name = "Coming Soon"
+            char_name = "Locked"
             asset     = None
 
         entries.append({
@@ -88,11 +103,11 @@ def _build_carousel_entries():
 
     return entries
 
+_needs_refresh = [True]                          # ← wrap in list
+CHARACTERS     = [_build_carousel_entries()]  
 
-CHARACTERS = _build_carousel_entries()
-
-if not CHARACTERS:
-    CHARACTERS = [{
+if not CHARACTERS[0]:
+    CHARACTERS[0] = [{
         "chapter_id": None, "chapter_order": 1,
         "name": "Coming Soon", "story": "Coming Soon",
         "description": "", "asset": None, "locked": True,
@@ -182,33 +197,38 @@ def make_placeholder() -> pygame.Surface:
     surf.blit(tint, (0, 0))
     return surf
 
-char_images = []
-for entry in CHARACTERS:
-    loaded = False
-    if entry.get("asset") and not entry.get("locked", False):
-        resolved = asset_path(entry["asset"])
-        print(f"[carousel] loading character: {resolved}  exists={os.path.isfile(resolved)}")
-        try:
-            img = pygame.image.load(resolved).convert_alpha()
+def _build_char_images() -> list:
+    images = []
+    for entry in CHARACTERS[0]:
+        loaded = False
+        if entry.get("asset") and not entry.get("locked", False):
+            resolved = asset_path(entry["asset"])
+            print(f"[carousel] loading character: {resolved}  exists={os.path.isfile(resolved)}")
+            try:
+                img = pygame.image.load(resolved).convert_alpha()
+                orig_w, orig_h = img.get_size()
+                scale_factor = char_h / orig_h
+                new_w = int(orig_w * scale_factor)
+                img = pygame.transform.scale(img, (new_w, char_h))
+                images.append(img)
+                loaded = True
+                print(f"[carousel] OK — character image loaded")
+            except Exception as e:
+                print(f"[carousel] ERROR loading character image: {e}")
+        if not loaded:
+            print(f"[carousel] using placeholder for entry: {entry.get('name')}")
+            images.append(make_placeholder())
+    return images
 
-            # Preserve aspect ratio (no stretching)
-            orig_w, orig_h = img.get_size()
-            scale_factor = char_h / orig_h
-            new_w = int(orig_w * scale_factor)
-            new_h = char_h
+char_images = [_build_char_images()] 
 
-            img = pygame.transform.scale(img, (new_w, new_h))  # better for pixel art
-            char_images.append(img)
-            loaded = True
-            print(f"[carousel] OK — character image loaded")
-        except Exception as e:
-            print(f"[carousel] ERROR loading character image: {e}")
-    if not loaded:
-        print(f"[carousel] using placeholder for entry: {entry.get('name')}")
-        char_images.append(make_placeholder())
+def refresh_carousel():
+    CHARACTERS[0]     = _build_carousel_entries()
+    char_images[0]    = _build_char_images()
+    _needs_refresh[0] = False
 
 def draw_buttons(mouse_pos):
-    locked = CHARACTERS[current_character[0]].get("locked", False)
+    locked = CHARACTERS[0][current_character[0]].get("locked", False)
     for btn in buttons:
         rect, label, colors = btn["rect"], btn["label"], BTN_COLORS[btn["label"]]
         if label == "Play" and locked:
@@ -262,10 +282,10 @@ def draw_lock_badge():
 
 
 def draw_carousel(mouse_pos):
-    entry  = CHARACTERS[current_character[0]]
+    entry  = CHARACTERS[0][current_character[0]]
     locked = entry.get("locked", False)
 
-    img = char_images[current_character[0]]
+    img = char_images[0][current_character[0]] 
 
     img_rect = img.get_rect(
         midbottom=(
@@ -294,7 +314,7 @@ def draw_carousel(mouse_pos):
 
 
 def launch_story():
-    entry = CHARACTERS[current_character[0]]
+    entry = CHARACTERS[0][current_character[0]]
     CURRENT_USER_ID = session.current_user["user_id"]
     if entry.get("locked", False):
         _show_coming_soon()
@@ -304,9 +324,9 @@ def launch_story():
     if chapter_class is None:
         _show_coming_soon()
         return
-    
-    chapter_class(screen, clock, user_id=CURRENT_USER_ID).run()
 
+    chapter_class(screen, clock, user_id=CURRENT_USER_ID).run()
+    _needs_refresh[0] = True 
 
 def _show_coming_soon():
     ovf   = pygame.font.SysFont("Arial", int(screen_height * 0.06), bold=True)
@@ -335,6 +355,8 @@ def _show_coming_soon():
 
 
 def run_student_mainmenu(events):
+    if _needs_refresh[0]:                           # ← check the value inside
+        refresh_carousel()
     mouse_pos = pygame.mouse.get_pos()
     
     for event in events:
@@ -355,9 +377,9 @@ def run_student_mainmenu(events):
 
 
             if left_arrow.collidepoint(event.pos):
-                current_character[0] = (current_character[0] - 1) % len(CHARACTERS)
+                current_character[0] = (current_character[0] - 1) % len(CHARACTERS[0])
             if right_arrow.collidepoint(event.pos):
-                current_character[0] = (current_character[0] + 1) % len(CHARACTERS)
+                current_character[0] = (current_character[0] + 1) % len(CHARACTERS[0])
 
     # --- DRAWING CODE ---
     screen.blit(bg_scaled, (0, 0))
