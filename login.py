@@ -143,17 +143,17 @@ def run_login(events):
                         if user_id:    
                             session.current_user["username"] = username
                             session.current_user["user_id"] = user_id[0]
+                            session.current_user["role"] = "student"
                             return "student_menu" 
 
                     elif role == "teacher":
-                        login_state["error_msg"] = "Teacher"  
                         cursor.execute('SELECT user_id FROM user WHERE username = ?', (username,))
                         user_id = cursor.fetchone()
                         if user_id:
                             session.current_user["username"] = username
                             session.current_user["user_id"] = user_id[0]
                             session.current_user["role"] = "teacher"
-                            return "teacher_dashboard"  # ← this triggers the scene change
+                            return "dashboard"  # ← this triggers the scene change
                     else:
                         login_state["error_msg"] = "user not found"
 
