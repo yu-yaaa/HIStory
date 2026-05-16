@@ -10,13 +10,13 @@ def get_font(size):
 
 def draw_tooltip(screen, text, pos, padding=15):
     font = get_font(25)
-    lines = text.split("\n")  # ← split into lines
+    lines = text.split("\n")
     surfaces = [font.render(line, True, (0,0,0)) for line in lines]
 
     box_w = max(s.get_width() for s in surfaces) + padding * 2
     box_h = sum(s.get_height() for s in surfaces) + padding * 2
 
-    tx, ty = pos[0] - box_w // 2, pos[1] - box_h - 10
+    tx, ty = pos[0] - box_w // 2, pos[1] + 10  # ← changed this line
 
     pygame.draw.rect(screen, ("#FFEFA5"), pygame.Rect(tx, ty, box_w, box_h), border_radius=30)
 
