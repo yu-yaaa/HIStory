@@ -224,3 +224,34 @@ def get_story_progress(user_id: str, chapter_id: str) -> dict:  # ← add this
         "current_scene": row["current_scene"] or 0,
         "score":         row["score"]         or 0,
     }
+    
+def fetch_debate_questions(chapter_id: str) -> tuple[str, str, list]:
+    with get_connection() as conn:
+        quiz = conn.execute(
+            "SELECT quiz_id, title FROM quiz WHERE chapter_id = ? AND type = 'debate'",
+            (chapter_id,),
+        ).fetchone()
+ 
+        if not quiz:
+            raise RuntimeError(
+                f"No debate quiz found for chapter '{chapter_id}'."
+            )
+ 
+        questions = conn.execute(
+            """
+            SELECT question_id, question_text,
+                   option_a, option_b, option_c, option_d,
+                   correct_answer, explanation
+            FROM   question
+            WHERE  quiz_id = ?
+            ORDER  BY question_id
+            """,
+            (quiz["quiz_id"],),
+        ).fetchall()
+ 
+        if not questions:
+            raise RuntimeError(
+                f"Debate quiz '{quiz['quiz_id']}' exists but has no questions."
+            )
+ 
+        return quiz["quiz_id"], quiz["title"], questions
