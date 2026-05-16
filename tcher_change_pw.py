@@ -231,13 +231,10 @@ def run_change_pw_overlay(screen, events):
     pygame.draw.rect(screen, black, confirm_pw_field.rect, width=4, border_radius=10)
     show_confirm_pw_btn.draw(screen)
 
-    # send OTP button
-    send_otp_btn.draw(screen)
-
-    # OTP sent feedback
-    if otp_sent:
+    # OTP sent feedback — drawn BEFORE send OTP button
+    if otp_sent and otp_timer <= 0:
         draw_text(screen, "OTP sent! Check your email.",
-                  box_x + box_w // 2, box_y + int(box_h * 0.545),
+                  box_x + box_w // 2, box_y + int(box_h * 0.54),
                   colour=green, size=int(screen_height * 0.022), anchor="center")
 
     # OTP resend cooldown
@@ -245,8 +242,11 @@ def run_change_pw_overlay(screen, events):
         otp_timer -= 1
         secs = otp_timer // 60
         draw_text(screen, f"Resend available in {secs}s",
-                  box_x + box_w // 2, box_y + int(box_h * 0.545),
+                  box_x + box_w // 2, box_y + int(box_h * 0.54),
                   colour=grey, size=int(screen_height * 0.02), anchor="center")
+
+    # send OTP button — drawn AFTER feedback text
+    send_otp_btn.draw(screen)
 
     # OTP field
     draw_text(screen, "Enter OTP",
@@ -259,14 +259,14 @@ def run_change_pw_overlay(screen, events):
     # confirm button
     confirm_btn.draw(screen)
 
-    # error / success
+    # error / success — drawn AFTER confirm button so they're visible
     if error_msg:
         draw_text(screen, error_msg,
-                  box_x + box_w // 2, box_y + int(box_h * 0.78),
+                  box_x + box_w // 2, box_y + int(box_h * 0.92),
                   colour=red, size=int(screen_height * 0.022), anchor="center")
     if success_msg:
         draw_text(screen, success_msg,
-                  box_x + box_w // 2, box_y + int(box_h * 0.78),
+                  box_x + box_w // 2, box_y + int(box_h * 0.92),
                   colour=green, size=int(screen_height * 0.022), anchor="center")
 
     # events

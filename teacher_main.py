@@ -57,9 +57,7 @@ while running:
 
     elif current_page == "teacher_profile":
         result, show_change_pw_popup = run_teacher_profile(events, show_change_pw_popup)
-        if result == "dashboard":
-            current_page = "teacher_dashboard"
-        elif result == "manage_students":
+        if result == "manage_students":
             current_page = "manage_students"
 
     pygame.display.flip()

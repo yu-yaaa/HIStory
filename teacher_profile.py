@@ -64,16 +64,6 @@ classes_box = Box(
     border_r = 0
 )
 
-back_button = Button("< Back",
-                    int(screen_width * 0.86),
-                    int(screen_height * 0.1),
-                    120, 50,
-                    (164, 191, 219), (164, 191, 219), (164, 191, 219),
-                    15, 10,
-                    int(screen.get_height() * 0.03),
-                    (0,0,0),
-                    tooltip="Back to dashboard")
-back_button.draw(screen)
 
 
 def init():
@@ -185,8 +175,6 @@ def run_teacher_profile(events, show_change_pw_popup=False):
               y = int(screen_height * 0.1),
               size = int(screen_height * 0.06))
 
-    # --- back button ---
-    back_button.draw(screen)
 
     # --- left: info box ---
     info_box.draw_box(screen)
@@ -273,28 +261,26 @@ def run_teacher_profile(events, show_change_pw_popup=False):
                   colour = grey,
                   anchor = "center")
 
-    # --- change password popup ---
+    # change password popup
     just_opened_pw = False
 
-    # --- events ---
-    for event in events:
-        profile_pic.handle_event(event)
+    # event
+    if not show_change_pw_popup:
+        for event in events:
+            profile_pic.handle_event(event)
 
-        if back_button.is_clicked(event):
-            return "dashboard", show_change_pw_popup
+            if change_password_btn.is_clicked(event):
+                just_opened_pw = True
+                show_change_pw_popup = True
 
-        if change_password_btn.is_clicked(event):
-            just_opened_pw = True
-            show_change_pw_popup = True
-
-        for view_btn, classroom_id in view_buttons:
-            if view_btn.is_clicked(event):
-                session.current_classroom_id = classroom_id
-                return "manage_students", show_change_pw_popup
+            for view_btn, classroom_id in view_buttons:
+                if view_btn.is_clicked(event):
+                    session.current_classroom_id = classroom_id
+                    return "manage_students", show_change_pw_popup
 
     if show_change_pw_popup and not just_opened_pw:
         result = run_change_pw_overlay(screen, events)
-        if result == "exit":
+        if result == "close":
             show_change_pw_popup = False
 
     return "teacher_profile", show_change_pw_popup
