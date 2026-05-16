@@ -87,7 +87,10 @@ def draw_dashboard(screen,events):
 
     # draw cards on the chalkboard
     classrooms = get_classrooms(session.current_user["user_id"])
-    draw_classroom_cards(screen, classrooms, events)
+    action, cid = draw_classroom_cards(screen, classrooms, events)
+    if action == "manage_students":
+        return "manage_students"
+
 
 
     #day and date

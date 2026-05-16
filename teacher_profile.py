@@ -25,6 +25,7 @@ panel = (224, 210, 160)
 pin_img        = None
 profile_pic    = None
 initialized_for = None
+class_scroll_offset = 0
 
 # left column — profile info box
 info_box = Box(
@@ -42,7 +43,7 @@ btn_x = info_box.Rect.centerx - btn_w // 2
 
 change_password_btn = Button("Change Password",
                              x = btn_x,
-                             y = int(screen_height * 0.55),
+                             y = int(screen_height * 0.57),
                              w = btn_w,
                              h = int(screen_height * 0.06),
                              color = green,
@@ -98,6 +99,27 @@ def draw_pin(x, y):
     if pin_img:
         screen.blit(pin_img, (x, y))
 
+def draw_text_wrapped(text, x, y, max_w, size, colour=black):
+    font = pygame.font.Font("Assets/Jersey10-Regular.ttf", size)
+    words = []
+    current_line = ""
+    
+    for char in text:
+        test_line = current_line + char
+        if font.size(test_line)[0] <= max_w:
+            current_line = test_line
+        else:
+            words.append(current_line)
+            current_line = char
+    if current_line:
+        words.append(current_line)
+
+    line_height = font.get_height() + 4
+    for i, line in enumerate(words):
+        surface = font.render(line, True, colour)
+        screen.blit(surface, (x, y + i * line_height))
+    
+    return len(words) * line_height  # return total height used
 
 def draw_class_card(screen, class_info, x, y, card_w, card_h):
     """Draw a single class card with name, student count and View More button"""
@@ -206,14 +228,21 @@ def run_teacher_profile(events, show_change_pw_popup=False):
               x = label_x, y = label_y + int(screen_height * 0.04),
               size = int(screen_height * 0.028))
 
-    # truncate email if too long
-    email = teacher_data["email"]
-    if len(email) > 20:
-        email = email[:19] + "…"
-    draw_text(email,
-              x = val_x, y = label_y + int(screen_height * 0.04),
-              size = int(screen_height * 0.028),
-              colour = button_blue)
+    # truncate email to fit inside info box
+    email     = teacher_data["email"]
+    max_email_w = info_box.Rect.right - val_x - int(screen_width * 0.01)
+    font_email  = pygame.font.Font("Assets/Jersey10-Regular.ttf", int(screen_height * 0.028))
+    while font_email.size(email)[0] > max_email_w and len(email) > 3:
+        email = email[:-1]
+    if email != teacher_data["email"]:
+        email = email[:-1] + "…"
+    max_email_w = info_box.Rect.right - val_x - int(screen_width * 0.01)
+    draw_text_wrapped(teacher_data["email"],
+                    val_x,
+                    label_y + int(screen_height * 0.04),
+                    max_email_w,
+                    int(screen_height * 0.028), 
+                    colour=button_blue)
 
     # change password button
     change_password_btn.draw(screen)
@@ -224,8 +253,8 @@ def run_teacher_profile(events, show_change_pw_popup=False):
 
     # pushpin on classes box
     draw_pin(
-        info_box.Rect.centerx - 20,
-        info_box.Rect.top - 30
+        classes_box.Rect.centerx - 20,
+        classes_box.Rect.top - 30
     )
 
     draw_text("Assigned Classes",
@@ -233,24 +262,39 @@ def run_teacher_profile(events, show_change_pw_popup=False):
               y = classes_box.Rect.y + int(screen_height * 0.02),
               size = int(screen_height * 0.038))
 
-    # class cards grid — 2 per row
-    classes    = teacher_data["classes"]
-    cols       = 2
-    card_w = int(classes_box.width * 0.40)
-    card_h = int(screen_height * 0.09)
-    gap_x      = int(screen_width  * 0.02)
-    gap_y      = int(screen_height * 0.02)
-    start_x    = classes_box.Rect.x + int(screen_width * 0.02)
-    start_y    = classes_box.Rect.y + int(screen_height * 0.1)
+    # class cards grid — 2 per row with scroll
+    classes       = teacher_data["classes"]
+    cols          = 2
+    card_w        = int(classes_box.width * 0.40)
+    card_h        = int(screen_height * 0.09)
+    gap_x         = int(screen_width  * 0.02)
+    gap_y         = int(screen_height * 0.02)
+    start_x       = classes_box.Rect.x + int(screen_width * 0.02)
+    start_y       = classes_box.Rect.y + int(screen_height * 0.1)
+    scroll_area_h = classes_box.height - int(screen_height * 0.12)
+    rows          = max(1, (len(classes) + cols - 1) // cols)
+    total_h       = rows * (card_h + gap_y)
+    max_scroll    = max(0, total_h - scroll_area_h)
 
-    view_buttons = []  # collect buttons to handle events
+    global class_scroll_offset
+    class_scroll_offset = max(0, min(class_scroll_offset, max_scroll))
+
+    clip_rect = pygame.Rect(classes_box.Rect.x, start_y,
+                            classes_box.width - 15, scroll_area_h)
+    screen.set_clip(clip_rect)
+
+    view_buttons = []
 
     if classes:
         for i, class_info in enumerate(classes):
             col = i % cols
             row = i // cols
             cx  = start_x + col * (card_w + gap_x)
-            cy  = start_y + row * (card_h + gap_y)
+            cy  = start_y + row * (card_h + gap_y) - class_scroll_offset
+
+            if cy + card_h < start_y or cy > start_y + scroll_area_h:
+                continue
+
             view_btn = draw_class_card(screen, class_info, cx, cy, card_w, card_h)
             view_buttons.append((view_btn, class_info["classroom_id"]))
     else:
@@ -261,6 +305,19 @@ def run_teacher_profile(events, show_change_pw_popup=False):
                   colour = grey,
                   anchor = "center")
 
+    screen.set_clip(None)
+
+    # scrollbar
+    if total_h > scroll_area_h:
+        bar_x     = classes_box.Rect.right - 12
+        bar_track = pygame.Rect(bar_x, start_y, 8, scroll_area_h)
+        ratio     = class_scroll_offset / max_scroll if max_scroll > 0 else 0
+        bar_h     = max(30, int(scroll_area_h * (scroll_area_h / total_h)))
+        bar_y     = start_y + int(ratio * (scroll_area_h - bar_h))
+        bar_fill  = pygame.Rect(bar_x, bar_y, 8, bar_h)
+        pygame.draw.rect(screen, (150, 150, 150), bar_track, border_radius=4)
+        pygame.draw.rect(screen, (80,  80,  80),  bar_fill,  border_radius=4)
+
     # change password popup
     just_opened_pw = False
 
@@ -268,6 +325,12 @@ def run_teacher_profile(events, show_change_pw_popup=False):
     if not show_change_pw_popup:
         for event in events:
             profile_pic.handle_event(event)
+
+            if event.type == pygame.MOUSEWHEEL:
+                if clip_rect.collidepoint(pygame.mouse.get_pos()):
+                    class_scroll_offset -= event.y * 20
+                    class_scroll_offset = max(0, min(class_scroll_offset, max_scroll))
+
 
             if change_password_btn.is_clicked(event):
                 just_opened_pw = True
