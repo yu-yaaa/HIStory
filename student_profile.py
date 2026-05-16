@@ -5,7 +5,6 @@ from login_register_base import screen,screen_height,screen_width
 from login_register_base import draw_text
 from join_class_popup import join_class_popup, popup_state
 from change_pw_popup import run_change_pw_popup
-from user_profile import ProfilePicture
 from arrow_button import Arrow_Button
 from queries import *
 from tooltip import draw_tooltip
@@ -113,6 +112,30 @@ def draw_progress_bar():
     draw_text(f"Progress Bar: Chapter {complete} out of {total}", x = int(screen_width* 0.33), y = int(screen_height *0.125), size = int(screen_height * 0.04))
     draw_text(f"{pct}%", int(screen_width* 0.6), int(screen_height * 0.22),size= int(screen_height * 0.03), anchor = "center")
     
+def wrap_text(surface, text, x, y, max_width, size, colour=(40, 40, 40), anchor="topleft"):
+    font = pygame.font.SysFont(None, size)
+    words = text.split(' ')
+    lines = []
+    current_line = ''
+
+    for word in words:
+        test_line = current_line + (' ' if current_line else '') + word
+        if font.size(test_line)[0] <= max_width:
+            current_line = test_line
+        else:
+            if current_line:
+                lines.append(current_line)
+            current_line = word  # start new line with the overflowing word
+
+    if current_line:
+        lines.append(current_line)
+
+    line_height = font.get_linesize()
+    for i, line in enumerate(lines):
+        draw_text(line, x=x, y=y + i * line_height, size=size, colour=colour, anchor=anchor)
+
+    return len(lines) * line_height  # return total height used, useful for dynamic layouts
+
 def score_and_feedback():
     quiz_box = Box(x=int(screen_width * 0.32),
                    y=int(screen_height * 0.3),
@@ -169,12 +192,13 @@ def score_and_feedback():
                       colour=score_color,
                       anchor="topright")
 
-        # Feedback text (smaller, grey)
-        draw_text(f"Feedback:  {feedback}",
-                  x=cx + int(screen_width * 0.01),
-                  y=cy + int(screen_height * 0.058),
-                  size=int(screen_height * 0.022),
-                  colour=grey)
+        wrap_text(screen,
+          f"Feedback: {feedback}",
+          x=cx + int(screen_width * 0.01),
+          y=cy + int(screen_height * 0.058),
+          max_width=card_w - int(screen_width * 0.02),  # card width minus left+right padding
+          size=int(screen_height * 0.022),
+          colour=grey)
 
 def run_student_profile(events,show_join_class_popup, profile_pic, show_change_pw_popup):
     username, gmail, password, role, picture_profile, classroom = get_user_info()
@@ -273,14 +297,15 @@ def run_student_profile(events,show_join_class_popup, profile_pic, show_change_p
         
         if rect.collidepoint(mouse_pos):
             hovered_tooltip = (name, desc, qty, x, y)
-    if hovered_tooltip:
-        name, desc, qty, x, y = hovered_tooltip
-        tx = max(x, power_up_box.Rect.x + int(screen_width * 0.15)) 
-        draw_tooltip(screen, f"{name}\n{desc}\nAmount Owned: {qty}\nUsed in: {type}", (tx, y))
+    
     progress_box.draw_box(screen)
     draw_progress_bar()
     back_button.draw(screen)
     score_and_feedback()
+    if hovered_tooltip:
+        name, desc, qty, x, y = hovered_tooltip
+        tx = max(x, power_up_box.Rect.x + int(screen_width * 0.15)) 
+        draw_tooltip(screen, f"{name}\n{desc}\nAmount Owned: {qty}\nUsed in: {type}", (tx, y))
     
     for event in events: 
         profile_pic.handle_event(event)
