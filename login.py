@@ -6,6 +6,7 @@ from button_class import Button
 from login_register_base import * # This import the base for login and resgister page
 from queries import check_role
 
+
 login_state = {"error_msg": ""} # This is to load error msg 
 
 logo_img = pygame.image.load("Assets/icons/HIStory Logo.png") # load HIStory logo
@@ -142,7 +143,7 @@ def run_login(events):
                         if user_id:    
                             session.current_user["username"] = username
                             session.current_user["user_id"] = user_id[0]
-                            return "profile" 
+                            return "student_menu" 
 
                     elif role == "teacher":
                         login_state["error_msg"] = "Teacher"  
