@@ -4,6 +4,8 @@ import os
 
 from database import fetch_dialogues_for_chapter, save_story_progress, get_story_progress
 from debate   import DebateGame
+import quizpt1
+import quizpt3
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
@@ -345,6 +347,16 @@ def _show_transition(screen, clock, screen_width, screen_height,
         clock.tick(60)
 
 
+def _run_quiz_ch1(screen, clock) -> int:
+    """Run the Chapter 1 quiz (quizpt1) and return 0-100 score."""
+    return quizpt1.run_quiz(screen, clock)
+
+
+def _run_quiz_ch3(screen, clock) -> int:
+    """Run the Chapter 3 quiz (quizpt3) and return 0-100 score."""
+    return quizpt3.run_quiz(screen, clock)
+
+
 def _run_debate(screen, clock) -> int:
     """
     Run the DebateGame and return a 0-100 percentage score.
@@ -485,7 +497,7 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
                              "Quiz Time!",
                              "Test your knowledge of Self-Government",
                              duration_ms=2500)
-            self.quiz_score_1 = _run_debate(self.screen, self.clock)
+            self.quiz_score_1 = _run_quiz_ch1(self.screen, self.clock)
 
             self._save_ch("CH001", 2, 0, "Completed", score=self.quiz_score_1)
 
@@ -558,7 +570,7 @@ class StoryChapter1Full(StoryChapterBase):  # this runs the whole chapter when u
                          "Final Quiz!",
                          "Test your knowledge of Independence Day",
                          duration_ms=2500)
-        self.quiz_score_3 = _run_debate(self.screen, self.clock)
+        self.quiz_score_3 = _run_quiz_ch3(self.screen, self.clock)
 
         # Mark CH003 completed with its score
         self._save_ch("CH003", 2, 0, "Completed", score=self.quiz_score_3)
@@ -700,7 +712,7 @@ class StoryChapter3Full(StoryChapterBase):
                          "Final Quiz!",
                          "Test your knowledge of Independence Day",
                          duration_ms=2500)
-        self.quiz_score = _run_debate(self.screen, self.clock)
+        self.quiz_score = _run_quiz_ch3(self.screen, self.clock)
         self._save_final(score=self.quiz_score)
 
         _show_transition(self.screen, self.clock,
