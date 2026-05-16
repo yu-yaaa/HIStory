@@ -121,7 +121,8 @@ def save_progress(quiz_score_raw):
     score_pct = int(quiz_score_raw / TOTAL_Q * 100)
     status    = "Completed" if score_pct >= 60 else "In Progress"
     try:
-        con = sqlite3.connect(DB_PATH, timeout=10)
+        con = sqlite3.connect(DB_PATH, timeout=30)
+        con.execute("PRAGMA journal_mode=WAL")
         cur = con.cursor()
         cur.execute("SELECT progress_id, attempts FROM progress WHERE user_id=? AND chapter_id=?",
                     (CURRENT_USER, CHAPTER_ID))
@@ -199,6 +200,7 @@ def render_wrapped(surf, text, font, colour, x, y, max_width, line_h=None):
 
 # ── Quiz state ────────────────────────────────────────────────────────────────
 class Quiz:
+    
     def __init__(self):
         self.q_index             = 0
         self.score               = 0
@@ -215,10 +217,15 @@ class Quiz:
         self.prev_attempts, self.prev_score = load_progress()
         self.final_score_pct = 0
         self.new_attempts    = self.prev_attempts
+        self.pending_answers = []
+            
 
     @property
     def current(self):
+        if self.q_index >= TOTAL_Q:
+            return QUESTIONS[-1]   # safe fallback – last question
         return QUESTIONS[self.q_index]
+
 
     @property
     def time_left(self):
@@ -236,14 +243,39 @@ class Quiz:
         self.second_chance_armed = False
         self.retry_flash_until   = 0.0
         if self.q_index >= TOTAL_Q:
-            self.finished        = True
-            self.final_score_pct = save_progress(self.score)
-            self.new_attempts    = self.prev_attempts + 1
+            self.finished = True
+            self._save_all()
+            
+    def _save_all(self):
+        try:
+            con = sqlite3.connect(DB_PATH, timeout=30)          # ← wait up to 30s
+            con.execute("PRAGMA journal_mode=WAL")              # ← allows concurrent reads
+            cur = con.cursor()
+            cur.execute("SELECT MAX(CAST(SUBSTR(player_ans_id,3) AS INT)) FROM player_ans")
+            row = cur.fetchone()
+            next_id = (row[0] or 0) + 1
 
+            for qid, sel_idx, is_correct in self.pending_answers:
+                cur.execute(
+                    "INSERT INTO player_ans VALUES (?,?,?,?,?,datetime('now','localtime'))",
+                    (f"PA{next_id:03d}", CURRENT_USER, qid,
+                    ANSWER_LETTERS[sel_idx] if sel_idx is not None else None,
+                    1 if is_correct else 0))
+                next_id += 1
+
+            con.commit()
+        except sqlite3.Error as e:
+            print(f"[DB ERROR] _save_all: {e}")
+        finally:
+            con.close()                                         # ← always closes
+
+        self.final_score_pct = save_progress(self.score)
+        self.new_attempts = self.prev_attempts + 1
     def pick(self, idx):
         if self.revealed or idx in self.hidden_options:
             return
         correct = (idx == self.current["answer"])
+        self.pending_answers.append((self.current["qid"], idx, correct))
         if not correct and self.second_chance_armed:
             self.second_chance_armed = False
             self.selected            = idx
@@ -253,7 +285,6 @@ class Quiz:
         self.revealed = True
         if correct:
             self.score += 1
-        save_answer(self.current["qid"], idx, correct)
         self.next_timer = time.time() + 2.2
 
     def timeout(self):
@@ -277,7 +308,7 @@ class Quiz:
         elif key == "second_chance":
             self.second_chance_armed = True
         elif key == "extra_time":
-            self.start_time -= -10
+            self.start_time -= 10
 
     def update(self):
         if self.finished:
@@ -293,6 +324,8 @@ class Quiz:
         else:
             if time.time() >= self.next_timer:
                 self.next_question()
+                if self.finished:   # ← ADD THIS
+                    return 
 
 
 # ── Layout (computed from given screen surface) ───────────────────────────────
