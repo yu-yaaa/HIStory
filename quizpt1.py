@@ -16,7 +16,6 @@ clock = pygame.time.Clock()
 # ── Colours ───────────────────────────────────────────────────────────────────
 C_PURPLE_DARK   = (140,  40, 180)
 C_PURPLE_MID    = (140,  40, 180)
-C_PURPLE_LIGHT  = (180,  80, 220)
 C_YELLOW        = (255, 220,  50)
 C_WHITE         = (  0,   0,   0)
 C_BLACK         = (  0,   0,   0)
@@ -27,8 +26,6 @@ C_ANSWER_NORMAL = (120,  50, 160)
 C_ANSWER_HOVER  = (155,  70, 200)
 C_TIMER_BAR     = (200, 160, 255)
 C_TIMER_WARN    = (255, 100,  50)
-
-# Power-up colours
 C_PU_AVAILABLE   = (  0, 120, 255)
 C_PU_HOVER       = (100, 180, 255)
 C_PU_USED        = ( 80,  50,  30)
@@ -55,104 +52,120 @@ FONT_RESULT  = load_font(50, bold=True)
 FONT_PU      = load_font(20, bold=True)
 FONT_PU_TINY = load_font(20)
 
-# ── Questions ─────────────────────────────────────────────────────────────────
-QUESTIONS = [
-    {
-        "qid": "QT001",
-        "q": "On what date did Tunku Abdul Rahman become leader of UMNO?",
-        "options": ["A. 27 July 1955", "B. 16 September 1963",
-                    "C. 26 August 1951", "D. 31 August 1957"],
-        "answer": 2,
-    },
-    {
-        "qid": "QT002",
-        "q":  "Who was the predecessor of Tunku Abdul Rahman as leader of UMNO?",
-        "options": ["A. Tan Cheng Lock", "B. British Governor", "C. Dato Onn Jaafar", "D. 1963"],
-        "answer": 2,
-    },
-    {
-        "qid": "QT003",
-        "q":  "Which 2 leaders did Tunku Abdul Rahman meet?",
-        "options": ["A. Tan Cheng Lock & Tun VT Sambathan", "B. Tun Dr. Mahatir & Lee Kuan Yew",
-                    "C. British Officers", "D. Dato Onn Jaafar & Sultan of Johor"],
-        "answer": 0,
-    },
-    {
-        "qid": "QT004",
-        "q":  "Tan Cheng Lock was the leader of which organization?",
-        "options": ["A. MIC", "B. MCA", "C. PAS", "D. UMNO"],
-        "answer": 1,
-    },
-    {
-        "qid": "QT005",
-        "q":  "Tun VT Sambathan represented which group?",
-        "options": ["A. Malays", "B. British", "C. Chinese", "D. Indians"],
-        "answer": 3,
-    },
-    {
-        "qid": "QT006",
-        "q":  "What was the purpose of the first general election?",
-        "options": ["A. To form a military", "B. To declare independence",
-                    "C. To choose representatives for the Federal Legislative Council",
-                    "D. To elect a king"],
-        "answer": 2,
-    },
-    {
-        "qid": "QT007",
-        "q":  "Why did Tunku Abdul Rahman want to work with MCA and MIC?",
-        "options": ["A. To unite different communities for independence",
-                    "B. To gain financial support",
-                    "C. To defeat other countries", "D. To start a business"],
-        "answer": 0,
-    },
-    {
-        "qid": "QT008",
-        "q":  "What was the significance of forming the Alliance Party?",
-        "options": ["A. It ended elections", "B. It removed leaders",
-                    "C. It promoted unity among races", "D. It divided the people"],
-        "answer": 2,
-    },
-    {
-        "qid": "QT009",
-        "q":  "How many seats did the Alliance Party win?",
-        "options": ["A. 49 out of 52", "B. 51 out of 52",
-                    "C. 50 out of 52", "D. 52 out of 52"],
-        "answer": 1,
-    },
-    {
-        "qid": "QT010",
-        "q":  "Why was unity between UMNO, MCA, and MIC important?",
-        "options": ["A. It stopped elections", "B. It benefited only one group",
-                    "C. It showed cooperation among different races",
-                    "D. It weakened the country"],
-        "answer": 2,
-    },
-]
+# ── Database config ───────────────────────────────────────────────────────────
+# Resolve SCRIPT_DIR robustly — works whether run as a file or via an IDE
+try:
+    SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    SCRIPT_DIR = os.path.abspath(".")
 
-TOTAL_Q    = len(QUESTIONS)
+# Search for HIStory.db in several candidate locations so it is found
+# regardless of the working directory when the script is launched.
+def _find_db():
+    candidates = [
+        os.path.join(SCRIPT_DIR, "HIStory.db"),
+        os.path.join(os.getcwd(), "HIStory.db"),
+        os.path.join(SCRIPT_DIR, "..", "HIStory.db"),
+    ]
+    for path in candidates:
+        norm = os.path.normpath(path)
+        if os.path.isfile(norm):
+            print(f"[DB] Found database at: {norm}")
+            return norm
+    # Last resort – return the original path so the error message is useful
+    fallback = os.path.join(SCRIPT_DIR, "HIStory.db")
+    print(f"[DB WARNING] HIStory.db not found in any candidate location. "
+          f"Will try: {fallback}")
+    return fallback
+
+DB_PATH      = _find_db()
+CURRENT_USER = "USR003"
+CHAPTER_ID   = "CH001"
+QUIZ_ID      = "QZ001"   # QZ001 = CH001 "The Road to Unity Quiz"
+ANSWER_LETTERS = ["A", "B", "C", "D"]
+
+# ── Load questions from DB ────────────────────────────────────────────────────
+def load_questions(quiz_id=None):
+    """
+    Reads from the 'question' table.
+    Columns: question_id, quiz_id, question_text,
+             option_a, option_b, option_c, option_d, correct_answer
+    correct_answer stores a letter: A / B / C / D
+    """
+    results = []
+    try:
+        con = sqlite3.connect(DB_PATH, timeout=10)
+        cur = con.cursor()
+
+        # List all tables with case-insensitive lookup
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        all_tables = [r[0] for r in cur.fetchall()]
+        print(f"[DB] Tables found: {all_tables}")
+
+        # Find the questions table regardless of capitalisation
+        questions_table = None
+        for t in all_tables:
+            if t.lower() == "question":
+                questions_table = t
+                break
+
+        if questions_table is None:
+            print(f"[DB ERROR] No 'questions' table found! "
+                  f"Available tables: {all_tables}")
+            con.close()
+            return results
+
+        if quiz_id:
+            cur.execute(
+                f"SELECT question_id, question_text, "
+                f"       option_a, option_b, option_c, option_d, correct_answer "
+                f"FROM \"{questions_table}\" WHERE quiz_id = ? ORDER BY question_id",
+                (quiz_id,)
+            )
+        else:
+            cur.execute(
+                f"SELECT question_id, question_text, "
+                f"       option_a, option_b, option_c, option_d, correct_answer "
+                f"FROM \"{questions_table}\" ORDER BY question_id"
+            )
+
+        rows = cur.fetchall()
+        con.close()
+        print(f"[DB] Loaded {len(rows)} question(s) for quiz_id='{quiz_id}'")
+
+        letter_to_index = {"A": 0, "B": 1, "C": 2, "D": 3}
+        for row in rows:
+            qid, q_text, opt_a, opt_b, opt_c, opt_d, correct_letter = row
+            results.append({
+                "qid":     qid,
+                "q":       q_text,
+                "options": [f"A. {opt_a}", f"B. {opt_b}", f"C. {opt_c}", f"D. {opt_d}"],
+                "answer":  letter_to_index.get(str(correct_letter).strip().upper(), 0),
+            })
+
+    except sqlite3.Error as e:
+        print(f"[DB ERROR] load_questions: {e}")
+
+    return results
+
+
+QUESTIONS = load_questions(quiz_id=QUIZ_ID)
+TOTAL_Q   = len(QUESTIONS)
 TIME_LIMIT = 45
 
 POWERUPS = [
-    {"key": "hint",          "icon": "HINT", "label": "Hint",    "reward_id": "R004"},
-    {"key": "second_chance", "icon": "2ND",  "label": "2nd Ch.", "reward_id": "R005"},
-    {"key": "extra_time",    "icon": "+Time","label": "+Time",   "reward_id": "R006"},
+    {"key": "hint",          "icon": "HINT",  "label": "Hint",    "reward_id": "R004"},
+    {"key": "second_chance", "icon": "2ND",   "label": "2nd Ch.", "reward_id": "R005"},
+    {"key": "extra_time",    "icon": "+Time", "label": "+Time",   "reward_id": "R006"},
 ]
 
-# ── Database config ───────────────────────────────────────────────────────────
-DB_PATH      = os.path.join(os.path.dirname(__file__), "HIStory.db")
-CURRENT_USER = "USR003"
-CHAPTER_ID   = "CH001"   # change to match which chapter this quiz belongs to
-
-ANSWER_LETTERS = ["A", "B", "C", "D"]
-
-# ── Progress table helpers ────────────────────────────────────────────────────
+# ── Progress helpers ──────────────────────────────────────────────────────────
 def load_progress():
     try:
         con = sqlite3.connect(DB_PATH, timeout=10)
         cur = con.cursor()
         cur.execute(
-            "SELECT attempts, score FROM progress "
-            "WHERE user_id = ? AND chapter_id = ?",
+            "SELECT attempts, score FROM progress WHERE user_id=? AND chapter_id=?",
             (CURRENT_USER, CHAPTER_ID)
         )
         row = cur.fetchone()
@@ -165,45 +178,40 @@ def load_progress():
 
 
 def _next_progress_id(cur):
-    cur.execute(
-        "SELECT progress_id FROM progress ORDER BY progress_id DESC LIMIT 1"
-    )
+    cur.execute("SELECT progress_id FROM progress ORDER BY progress_id DESC LIMIT 1")
     row = cur.fetchone()
     if row:
-        num = int(row[0][1:])
-        return f"P{num + 1:03d}"
+        try:
+            return f"P{int(row[0][1:]) + 1:03d}"
+        except ValueError:
+            pass
     return "P001"
 
 
 def save_progress(quiz_score_raw):
+    if TOTAL_Q == 0:
+        return 0
     score_pct = int(quiz_score_raw / TOTAL_Q * 100)
     status    = "Completed" if score_pct >= 60 else "In Progress"
     try:
         con = sqlite3.connect(DB_PATH, timeout=10)
         cur = con.cursor()
         cur.execute(
-            "SELECT progress_id, attempts FROM progress "
-            "WHERE user_id = ? AND chapter_id = ?",
+            "SELECT progress_id, attempts FROM progress WHERE user_id=? AND chapter_id=?",
             (CURRENT_USER, CHAPTER_ID)
         )
         row = cur.fetchone()
         if row:
-            new_attempts = int(row[1] or 0) + 1
             cur.execute(
-                "UPDATE progress "
-                "SET attempts = ?, score = ?, status = ?, "
-                "    last_accessed = datetime('now','localtime') "
-                "WHERE user_id = ? AND chapter_id = ?",
-                (new_attempts, score_pct, status, CURRENT_USER, CHAPTER_ID)
+                "UPDATE progress SET attempts=?, score=?, status=?, "
+                "last_accessed=datetime('now','localtime') WHERE user_id=? AND chapter_id=?",
+                (int(row[1] or 0) + 1, score_pct, status, CURRENT_USER, CHAPTER_ID)
             )
         else:
-            prog_id = _next_progress_id(cur)
             cur.execute(
-                "INSERT INTO progress "
-                "(progress_id, user_id, chapter_id, status, "
-                " last_accessed, attempts, score) "
-                "VALUES (?, ?, ?, ?, datetime('now','localtime'), 1, ?)",
-                (prog_id, CURRENT_USER, CHAPTER_ID, status, score_pct)
+                "INSERT INTO progress (progress_id,user_id,chapter_id,status,"
+                "last_accessed,attempts,score) VALUES (?,?,?,?,datetime('now','localtime'),1,?)",
+                (_next_progress_id(cur), CURRENT_USER, CHAPTER_ID, status, score_pct)
             )
         con.commit()
         con.close()
@@ -212,15 +220,14 @@ def save_progress(quiz_score_raw):
     return score_pct
 
 
-# ── player_ans helpers ────────────────────────────────────────────────────────
 def _next_pa_id(cur):
-    cur.execute(
-        "SELECT player_ans_id FROM player_ans ORDER BY player_ans_id DESC LIMIT 1"
-    )
+    cur.execute("SELECT player_ans_id FROM player_ans ORDER BY player_ans_id DESC LIMIT 1")
     row = cur.fetchone()
     if row:
-        last_num = int(row[0][2:])
-        return f"PA{last_num + 1:03d}"
+        try:
+            return f"PA{int(row[0][2:]) + 1:03d}"
+        except ValueError:
+            pass
     return "PA001"
 
 
@@ -228,22 +235,22 @@ def save_answer(question_id, selected_index, is_correct):
     try:
         con = sqlite3.connect(DB_PATH, timeout=10)
         cur = con.cursor()
-        pa_id       = _next_pa_id(cur)
-        sel_letter  = ANSWER_LETTERS[selected_index] if selected_index is not None else None
-        correct_val = 1 if is_correct else 0
         cur.execute(
             "INSERT INTO player_ans "
-            "(player_ans_id, user_id, question_id, selected_ans, is_correct, answered_at) "
-            "VALUES (?, ?, ?, ?, ?, datetime('now','localtime'))",
-            (pa_id, CURRENT_USER, question_id, sel_letter, correct_val)
+            "(player_ans_id,user_id,question_id,selected_ans,is_correct,answered_at) "
+            "VALUES (?,?,?,?,?,datetime('now','localtime'))",
+            (
+                _next_pa_id(cur), CURRENT_USER, question_id,
+                ANSWER_LETTERS[selected_index] if selected_index is not None else None,
+                1 if is_correct else 0,
+            )
         )
         con.commit()
         con.close()
     except sqlite3.Error as e:
         print(f"[DB ERROR] save_answer: {e}")
 
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Rendering helpers ─────────────────────────────────────────────────────────
 def draw_rounded_rect(surf, colour, rect, radius=14, border=0, border_col=None):
     pygame.draw.rect(surf, colour, rect, border_radius=radius)
     if border and border_col:
@@ -271,23 +278,20 @@ def render_wrapped(surf, text, font, colour, x, y, max_width, line_h=None):
     lines = wrap_text(text, font, max_width)
     lh    = line_h or (font.get_height() + 4)
     for i, ln in enumerate(lines):
-        img = font.render(ln, True, colour)
-        surf.blit(img, (x, y + i * lh))
+        surf.blit(font.render(ln, True, colour), (x, y + i * lh))
     return len(lines) * lh
-
 
 # ── Background ────────────────────────────────────────────────────────────────
 bg_image = None
 try:
-    bg_path = os.path.join(os.path.dirname(__file__), "Assets", "background", "quizbg.png")
+    bg_path = os.path.join(SCRIPT_DIR, "Assets", "background", "quizbg.png")
     if not os.path.exists(bg_path):
-        bg_path = os.path.join(os.path.dirname(__file__), "quizbackground.png")
+        bg_path = os.path.join(SCRIPT_DIR, "quizbackground.png")
     if os.path.exists(bg_path):
         raw      = pygame.image.load(bg_path).convert()
         bg_image = pygame.transform.scale(raw, (SCREEN_W, SCREEN_H))
 except Exception:
     pass
-
 
 def draw_bg():
     if bg_image:
@@ -295,13 +299,12 @@ def draw_bg():
     else:
         screen.fill((40, 80, 40))
 
-
 # ── Power-up images ───────────────────────────────────────────────────────────
-PU_IMG_SIZE = (52, 52)   # pixel size images are scaled to inside the button
+PU_IMG_SIZE = (52, 52)
 
 def _load_pu_image(filename):
     try:
-        path = os.path.join(os.path.dirname(__file__), "Assets", "power_ups", filename)
+        path = os.path.join(SCRIPT_DIR, "Assets", "power_ups", filename)
         img  = pygame.image.load(path).convert_alpha()
         return pygame.transform.scale(img, PU_IMG_SIZE)
     except Exception:
@@ -313,19 +316,16 @@ PU_IMAGES = {
     "extra_time":    _load_pu_image("R006.png"),
 }
 
-
-# ── Layout constants ──────────────────────────────────────────────────────────
+# ── Layout ────────────────────────────────────────────────────────────────────
 PANEL_W, PANEL_H = 720, 460
 PANEL_X = (SCREEN_W - PANEL_W) // 2
 PANEL_Y = (SCREEN_H - PANEL_H) // 2
-
 BTN_X   = PANEL_X + 22
 BTN_W   = PANEL_W - 44
 BTN_H   = 38
 BTN_GAP = 8
 BTN_TOP = PANEL_Y + 155
 
-# ── Power-up bar layout ───────────────────────────────────────────────────────
 PU_BAR_H        = 90
 PU_BAR_Y        = SCREEN_H - PU_BAR_H - 20
 PU_BAR_W        = 500
@@ -333,25 +333,21 @@ PU_BAR_X        = (SCREEN_W - PU_BAR_W) // 2
 PU_BTN_W        = 100
 PU_BTN_H        = 75
 PU_BTN_GAP      = 19
-_PU_LABEL_W     = 90
-PU_BTNS_START_X = PU_BAR_X + _PU_LABEL_W + 10
+PU_BTNS_START_X = PU_BAR_X + 90 + 10
 PU_BTN_Y        = PU_BAR_Y + (PU_BAR_H - PU_BTN_H) // 2
 
-
 def powerup_rect(i):
-    return pygame.Rect(
-        PU_BTNS_START_X + i * (PU_BTN_W + PU_BTN_GAP),
-        PU_BTN_Y, PU_BTN_W, PU_BTN_H,
-    )
-
+    return pygame.Rect(PU_BTNS_START_X + i * (PU_BTN_W + PU_BTN_GAP),
+                       PU_BTN_Y, PU_BTN_W, PU_BTN_H)
 
 def answer_rect(i):
     return pygame.Rect(BTN_X, BTN_TOP + i * (BTN_H + BTN_GAP), BTN_W, BTN_H)
 
-
-# ── Quiz State ────────────────────────────────────────────────────────────────
+# ── Quiz state ────────────────────────────────────────────────────────────────
 class Quiz:
     def __init__(self):
+        self.questions           = load_questions(quiz_id=QUIZ_ID)
+        self.total_q             = len(self.questions)
         self.q_index             = 0
         self.score               = 0
         self.selected            = None
@@ -364,17 +360,13 @@ class Quiz:
         self.hidden_options      = set()
         self.second_chance_armed = False
         self.retry_flash_until   = 0.0
-
-        # Load existing progress from DB at the start of each run
         self.prev_attempts, self.prev_score = load_progress()
-
-        # Set after save_progress() runs at quiz end
-        self.final_score_pct = 0
-        self.new_attempts    = self.prev_attempts
+        self.final_score_pct     = 0
+        self.new_attempts        = self.prev_attempts
 
     @property
     def current(self):
-        return QUESTIONS[self.q_index]
+        return self.questions[self.q_index]
 
     @property
     def time_left(self):
@@ -391,7 +383,7 @@ class Quiz:
         self.hidden_options      = set()
         self.second_chance_armed = False
         self.retry_flash_until   = 0.0
-        if self.q_index >= TOTAL_Q:
+        if self.q_index >= self.total_q:
             self.finished        = True
             self.final_score_pct = save_progress(self.score)
             self.new_attempts    = self.prev_attempts + 1
@@ -433,13 +425,12 @@ class Quiz:
         elif key == "second_chance":
             self.second_chance_armed = True
         elif key == "extra_time":
-            self.start_time -= -10
+            self.start_time -= -10   # adds 10 seconds
 
     def update(self):
         if self.finished:
             return
-        if (not self.revealed
-                and self.selected is not None
+        if (not self.revealed and self.selected is not None
                 and self.retry_flash_until > 0
                 and time.time() >= self.retry_flash_until):
             self.selected          = None
@@ -451,14 +442,12 @@ class Quiz:
             if time.time() >= self.next_timer:
                 self.next_question()
 
-
-# ── Draw Power-up Bar ─────────────────────────────────────────────────────────
-def draw_powerup_bar(quiz: Quiz):
+# ── Draw power-up bar ─────────────────────────────────────────────────────────
+def draw_powerup_bar(quiz):
     mouse_pos = pygame.mouse.get_pos()
-    bar_rect  = pygame.Rect(PU_BAR_X, PU_BAR_Y, PU_BAR_W, PU_BAR_H)
-    draw_rounded_rect(screen, C_PU_BAR_BG, bar_rect, radius=14,
-                      border=2, border_col=C_RED_BORDER)
-
+    draw_rounded_rect(screen, C_PU_BAR_BG,
+                      pygame.Rect(PU_BAR_X, PU_BAR_Y, PU_BAR_W, PU_BAR_H),
+                      radius=14, border=2, border_col=C_RED_BORDER)
     lbl = FONT_PU.render("Power Ups:", True, C_BLACK)
     screen.blit(lbl, (PU_BAR_X + 10, PU_BAR_Y + (PU_BAR_H - lbl.get_height()) // 2))
 
@@ -476,56 +465,49 @@ def draw_powerup_bar(quiz: Quiz):
 
         draw_rounded_rect(screen, bg_col, rect, radius=8, border=2, border_col=bdr_col)
 
-        # ── Icon: image if available, text label as fallback ─────────────────
         img = PU_IMAGES.get(pu["key"])
         if img:
-            # Centre the image inside the button, leaving room for the label below
             img_x = rect.x + (PU_BTN_W - PU_IMG_SIZE[0]) // 2
-            img_y = rect.y + 4
-            # Tint used images grey by blending a dark overlay
             if used:
                 tinted = img.copy()
                 tinted.fill((80, 80, 80, 160), special_flags=pygame.BLEND_RGBA_MULT)
-                screen.blit(tinted, (img_x, img_y))
+                screen.blit(tinted, (img_x, rect.y + 4))
             else:
-                screen.blit(img, (img_x, img_y))
+                screen.blit(img, (img_x, rect.y + 4))
         else:
-            # Fallback: render the text icon if image file is missing
             icon_surf = FONT_PU.render(pu["icon"], True, txt_col)
-            screen.blit(icon_surf, (
-                rect.x + (PU_BTN_W - icon_surf.get_width()) // 2,
-                rect.y + 4
-            ))
+            screen.blit(icon_surf,
+                        (rect.x + (PU_BTN_W - icon_surf.get_width()) // 2, rect.y + 4))
 
-        # Sub-label always shown below the icon/image
         sub_surf = FONT_PU_TINY.render(pu["label"], True, txt_col)
         screen.blit(sub_surf, (
             rect.x + (PU_BTN_W - sub_surf.get_width()) // 2,
             rect.y + PU_BTN_H - sub_surf.get_height() - 4
         ))
 
-        # Dim overlay when question already answered but power-up not used
         if quiz.revealed and not used:
             dim = pygame.Surface((PU_BTN_W, PU_BTN_H), pygame.SRCALPHA)
             dim.fill((0, 0, 0, 90))
             screen.blit(dim, rect.topleft)
 
-
-# ── Draw Quiz Screen ──────────────────────────────────────────────────────────
-def draw_quiz(quiz: Quiz):
+# ── Draw quiz screen ──────────────────────────────────────────────────────────
+def draw_quiz(quiz):
     draw_bg()
-    q = quiz.current
+    if not quiz.questions:
+        return
 
-    panel = pygame.Rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H)
-    draw_rounded_rect(screen, C_PURPLE_MID, panel, radius=18, border=3, border_col=C_YELLOW)
+    q = quiz.current
+    draw_rounded_rect(screen, C_PURPLE_MID,
+                      pygame.Rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H),
+                      radius=18, border=3, border_col=C_YELLOW)
 
     title_rect = pygame.Rect(PANEL_X + 180, PANEL_Y - 24, PANEL_W - 360, 46)
     draw_rounded_rect(screen, C_PURPLE_MID, title_rect, radius=12, border=2, border_col=C_YELLOW)
     t_img = FONT_TITLE.render("Quiz Time!", True, C_BLACK)
     screen.blit(t_img, t_img.get_rect(center=title_rect.center))
 
-    q_num = FONT_Q.render(f"{quiz.q_index + 1}.", True, C_YELLOW)
-    screen.blit(q_num, (PANEL_X + 22, PANEL_Y + 54))
+    screen.blit(FONT_Q.render(f"{quiz.q_index + 1}.", True, C_YELLOW),
+                (PANEL_X + 22, PANEL_Y + 54))
     render_wrapped(screen, q["q"], FONT_Q, C_WHITE,
                    PANEL_X + 55, PANEL_Y + 54, PANEL_W - 80, line_h=22)
 
@@ -537,64 +519,56 @@ def draw_quiz(quiz: Quiz):
         if i in quiz.hidden_options:
             draw_rounded_rect(screen, (60, 60, 60), rect, radius=10,
                               border=2, border_col=(90, 90, 90))
-            x_surf = FONT_ANS.render("✕", True, (120, 120, 120))
+            x_surf = FONT_ANS.render("X", True, (120, 120, 120))
             screen.blit(x_surf, x_surf.get_rect(center=rect.center))
             continue
 
         if quiz.revealed:
             col = C_GREEN if i == correct else (C_RED if i == quiz.selected else C_ANSWER_NORMAL)
         else:
-            if quiz.selected == i and i != correct:
-                col = C_RED
-            else:
-                col = C_ANSWER_HOVER if rect.collidepoint(mouse_pos) else C_ANSWER_NORMAL
+            col = (C_RED if quiz.selected == i and i != correct
+                   else C_ANSWER_HOVER if rect.collidepoint(mouse_pos)
+                   else C_ANSWER_NORMAL)
 
         draw_rounded_rect(screen, col, rect, radius=10, border=2, border_col=C_YELLOW)
         render_wrapped(screen, opt, FONT_ANS, C_WHITE,
                        rect.x + 14, rect.y + (BTN_H - FONT_ANS.get_height()) // 2,
                        rect.w - 20)
 
-    # Timer bar
     bar_y   = PANEL_Y + PANEL_H - 36
     bar_x   = PANEL_X + 22
     bar_w   = PANEL_W - 44
-    bar_h   = 14
     tl      = quiz.time_left
-    frac    = tl / TIME_LIMIT
     bar_col = C_TIMER_WARN if tl < 10 else C_TIMER_BAR
 
-    pygame.draw.rect(screen, C_GREY_BG, (bar_x, bar_y, bar_w, bar_h), border_radius=7)
-    fill_w = int(bar_w * frac)
+    pygame.draw.rect(screen, C_GREY_BG,  (bar_x, bar_y, bar_w, 14), border_radius=7)
+    fill_w = int(bar_w * tl / TIME_LIMIT)
     if fill_w > 0:
-        pygame.draw.rect(screen, bar_col, (bar_x, bar_y, fill_w, bar_h), border_radius=7)
-    pygame.draw.rect(screen, C_YELLOW, (bar_x, bar_y, bar_w, bar_h), 2, border_radius=7)
+        pygame.draw.rect(screen, bar_col, (bar_x, bar_y, fill_w, 14), border_radius=7)
+    pygame.draw.rect(screen, C_YELLOW,   (bar_x, bar_y, bar_w, 14), 2, border_radius=7)
 
-    secs_img = FONT_SMALL.render(f"{int(tl)} Seconds Left", True, C_WHITE)
-    screen.blit(secs_img, (bar_x, bar_y - 18))
+    screen.blit(FONT_SMALL.render(f"{int(tl)} Seconds Left", True, C_WHITE),
+                (bar_x, bar_y - 18))
 
-    # Top-right live stats
-    line1 = FONT_SMALL.render(
-        f"{quiz.q_index + 1}/{TOTAL_Q}  Score: {quiz.score}", True, C_YELLOW)
-    line2 = FONT_PU.render(
-        f"Attempt #{quiz.prev_attempts + 1}  Best: {quiz.prev_score}%",
-        True, (255, 200, 100))
+    line1 = FONT_SMALL.render(f"{quiz.q_index + 1}/{quiz.total_q}  Score: {quiz.score}",
+                               True, C_YELLOW)
+    line2 = FONT_PU.render(f"Attempt #{quiz.prev_attempts + 1}  Best: {quiz.prev_score}%",
+                            True, (255, 200, 100))
     screen.blit(line1, (PANEL_X + PANEL_W - line1.get_width() - 10, PANEL_Y + 8))
     screen.blit(line2, (PANEL_X + PANEL_W - line2.get_width() - 10, PANEL_Y + 36))
 
     draw_powerup_bar(quiz)
 
-
-# ── Draw Results Screen ───────────────────────────────────────────────────────
-def draw_results(quiz: Quiz):
+# ── Draw results screen ───────────────────────────────────────────────────────
+def draw_results(quiz):
     draw_bg()
-
     panel = pygame.Rect(SCREEN_W // 2 - 260, SCREEN_H // 2 - 210, 520, 420)
     draw_rounded_rect(screen, C_PURPLE_DARK, panel, radius=18, border=3, border_col=C_YELLOW)
 
-    title = FONT_BIG.render("Quiz Complete!", True, C_YELLOW)
-    screen.blit(title, title.get_rect(centerx=SCREEN_W // 2, y=panel.y + 18))
+    title_surf = FONT_BIG.render("Quiz Complete!", True, C_YELLOW)
+    screen.blit(title_surf, title_surf.get_rect(centerx=SCREEN_W // 2, y=panel.y + 18))
 
-    raw_surf = FONT_RESULT.render(f"{quiz.score} / {TOTAL_Q}", True, (255, 255, 255))
+    raw_surf = FONT_RESULT.render(f"{quiz.score} / {quiz.total_q}", True, (255, 255, 255))
     screen.blit(raw_surf, raw_surf.get_rect(centerx=SCREEN_W // 2, y=panel.y + 90))
 
     pct      = quiz.final_score_pct
@@ -607,15 +581,15 @@ def draw_results(quiz: Quiz):
     screen.blit(att_surf, att_surf.get_rect(centerx=SCREEN_W // 2, y=panel.y + 196))
 
     if pct == 100:
-        msg, col = "Perfect! Tahniah!",             C_GREEN
+        msg, col = "Perfect! Tahniah!",              C_GREEN
     elif pct >= 70:
-        msg, col = "Bagus! Well done!",             C_TIMER_BAR
+        msg, col = "Bagus! Well done!",              C_TIMER_BAR
     elif pct >= 60:
-        msg, col = "Passed! Keep it up!",           C_YELLOW
+        msg, col = "Passed! Keep it up!",            C_YELLOW
     elif pct >= 50:
-        msg, col = "Not bad – keep studying!",      C_YELLOW
+        msg, col = "Not bad - keep studying!",       C_YELLOW
     else:
-        msg, col = "Jangan putus asa – try again!", C_RED
+        msg, col = "Jangan putus asa - try again!",  C_RED
 
     msg_surf = FONT_ANS.render(msg, True, col)
     screen.blit(msg_surf, msg_surf.get_rect(centerx=SCREEN_W // 2, y=panel.y + 240))
@@ -632,22 +606,23 @@ def draw_results(quiz: Quiz):
     screen.blit(btn_txt, btn_txt.get_rect(center=btn.center))
     return btn
 
-
-# ── Main Loop ─────────────────────────────────────────────────────────────────
+# ── Main loop ─────────────────────────────────────────────────────────────────
 def main():
+    if not QUESTIONS:
+        print("[ERROR] No questions loaded. Make sure HIStory.db is in the same folder as this script.")
+        pygame.quit()
+        sys.exit()
+
     quiz     = Quiz()
     play_btn = None
 
     while True:
         clock.tick(60)
-
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
+                pygame.quit(); sys.exit()
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                pygame.quit()
-                sys.exit()
+                pygame.quit(); sys.exit()
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 if quiz.finished:
@@ -672,7 +647,6 @@ def main():
             play_btn = draw_results(quiz)
 
         pygame.display.flip()
-
 
 if __name__ == "__main__":
     main()
