@@ -415,3 +415,45 @@ def get_teacher_profile_info(user_id):
             for row in classes
         ]
     }
+
+def update_password(user_id, new_password):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        UPDATE user
+        SET password = ?
+        WHERE user_id = ?
+    """, (new_password, user_id))
+    
+    conn.commit()
+    conn.close()
+
+def verify_current_password(user_id, current_password):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT password FROM user
+        WHERE user_id = ?
+    """, (user_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result and result[0] == current_password:
+        return True
+    return False
+
+def get_teacher_email(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute("""
+        SELECT email FROM user
+        WHERE user_id = ?
+    """, (user_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None

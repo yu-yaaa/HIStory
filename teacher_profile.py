@@ -5,7 +5,6 @@ from login_register_base import screen, screen_height, screen_width
 from login_register_base import draw_text
 from tcher_change_pw import run_change_pw_overlay
 from user_profile import ProfilePicture
-from arrow_button import Arrow_Button
 from tcher_database import get_teacher_profile_info
 import session
 
@@ -20,25 +19,30 @@ hover_button_blue = (17, 30, 79)
 grey          = (150, 150, 150)
 green         = (50, 180, 80)
 hover_green   = (30, 140, 60)
+cream = (236, 223, 170)
+panel = (224, 210, 160)
 
-# --- module level, lazy init ---
 pin_img        = None
 profile_pic    = None
 initialized_for = None
 
-# --- static UI elements (positions depend on screen size from login_register_base) ---
 # left column — profile info box
-info_box = Box(x = int(screen_width * 0.05),
-               y = int(screen_height * 0.18),
-               w = int(screen_width * 0.28),
-               h = int(screen_height * 0.38))
+info_box = Box(
+    x = int(screen_width * 0.12),
+    y = int(screen_height * 0.20),
+    w = int(screen_width * 0.22),
+    h = int(screen_height * 0.45),
+    colour = (245, 210, 90),   # sticky note yellow
+    alpha = 255,
+    border_r = 0
+)
 
 btn_w = int(info_box.width * 0.65)
 btn_x = info_box.Rect.centerx - btn_w // 2
 
 change_password_btn = Button("Change Password",
                              x = btn_x,
-                             y = int(screen_height * 0.48),
+                             y = int(screen_height * 0.55),
                              w = btn_w,
                              h = int(screen_height * 0.06),
                              color = green,
@@ -50,20 +54,26 @@ change_password_btn = Button("Change Password",
                              font_color = white)
 
 # right column — assigned classes box
-classes_box = Box(x = int(screen_width * 0.36),
-                  y = int(screen_height * 0.18),
-                  w = int(screen_width * 0.6),
-                  h = int(screen_height * 0.72))
+classes_box = Box(
+    x = int(screen_width * 0.40),
+    y = int(screen_height * 0.20),
+    w = int(screen_width * 0.45),
+    h = int(screen_height * 0.55),
+    colour = (245, 210, 90),
+    alpha = 255,
+    border_r = 0
+)
 
-back_button = Arrow_Button("left",
-                           x = int(screen_width * 0.01),
-                           y = int(screen_width * 0.01),
-                           size = int(screen_width * 0.05),
-                           colour = border_red,
-                           hover_colour = (110, 11, 9),
-                           border_r = 30,
-                           border_w = 0,
-                           border_colour = black)
+back_button = Button("< Back",
+                    int(screen_width * 0.86),
+                    int(screen_height * 0.1),
+                    120, 50,
+                    (164, 191, 219), (164, 191, 219), (164, 191, 219),
+                    15, 10,
+                    int(screen.get_height() * 0.03),
+                    (0,0,0),
+                    tooltip="Back to dashboard")
+back_button.draw(screen)
 
 
 def init():
@@ -83,10 +93,13 @@ def init():
         pin_img = None
 
     # profile picture widget
+    pic_size = int(screen_width * 0.10)
+
     profile_pic = ProfilePicture(
-        x = info_box.Rect.centerx - int(screen_width * 0.07),
-        y = int(screen_height * 0.22),
-        size = int(screen_width * 0.13)
+        user_id = session.current_user["user_id"],
+        box_x = info_box.Rect.centerx - pic_size // 2,
+        box_y = int(screen_height * 0.22),
+        box_size = pic_size
     )
 
 
@@ -99,8 +112,13 @@ def draw_pin(x, y):
 def draw_class_card(screen, class_info, x, y, card_w, card_h):
     """Draw a single class card with name, student count and View More button"""
     card = Box(x=x, y=y, w=card_w, h=card_h,
-               colour=(255, 245, 210), alpha=255, border_r=12)
+               colour=(250, 235, 170), alpha=255, border_r=12)
     card.draw_box(screen)
+
+    pygame.draw.rect(screen, black,
+                 pygame.Rect(x, y, card_w, card_h),
+                 width=3,
+                 border_radius=12)
 
     # class name
     draw_text(class_info["class_name"],
@@ -138,13 +156,33 @@ def run_teacher_profile(events, show_change_pw_popup=False):
     from bg import draw_background
     draw_background(screen)
 
+    outer_rect = pygame.Rect(
+        int(screen_width * 0.02),
+        int(screen_height * 0.02),
+        int(screen_width * 0.96),
+        int(screen_height * 0.93)
+    )
+
+    pygame.draw.rect(screen, (201, 145, 112), outer_rect)
+    pygame.draw.rect(screen, black, outer_rect, width=6) 
+
+    inner_rect = pygame.Rect(
+        int(screen_width * 0.04),
+        int(screen_height * 0.05),
+        int(screen_width * 0.92),
+        int(screen_height * 0.86)
+    )
+
+    pygame.draw.rect(screen, (164, 191, 219), inner_rect)
+    pygame.draw.rect(screen, black, inner_rect, width=5)
+
     # fetch teacher data
     teacher_data = get_teacher_profile_info(session.current_user["user_id"])
 
     # --- title ---
     draw_text("Profile",
-              x = int(screen_width * 0.05),
-              y = int(screen_height * 0.08),
+              x = int(screen_width * 0.07),
+              y = int(screen_height * 0.1),
               size = int(screen_height * 0.06))
 
     # --- back button ---
@@ -152,19 +190,21 @@ def run_teacher_profile(events, show_change_pw_popup=False):
 
     # --- left: info box ---
     info_box.draw_box(screen)
+    pygame.draw.rect(screen, black, info_box.Rect, width=4)
 
     # pushpin on info box
-    draw_pin(info_box.Rect.centerx - int(screen_width * 0.02),
-             info_box.Rect.top - int(screen_height * 0.03))
+    draw_pin(
+        info_box.Rect.centerx - 20,
+        info_box.Rect.top - 30
+    )
 
     # profile picture
     profile_pic.draw(screen)
 
-    # change picture button — drawn by ProfilePicture widget if it has one
     # username and email labels
-    label_x = info_box.Rect.x + int(screen_width * 0.01)
-    val_x   = info_box.Rect.x + int(screen_width * 0.1)
-    label_y = int(screen_height * 0.38)
+    label_x = info_box.Rect.centerx - int(screen_width * 0.08)
+    val_x   = label_x + int(screen_width * 0.09)
+    label_y = int(screen_height * 0.46)
 
     draw_text("Username",
               x = label_x, y = label_y,
@@ -192,10 +232,13 @@ def run_teacher_profile(events, show_change_pw_popup=False):
 
     # --- right: assigned classes box ---
     classes_box.draw_box(screen)
+    pygame.draw.rect(screen, black, classes_box.Rect, width=4)
 
     # pushpin on classes box
-    draw_pin(classes_box.Rect.centerx - int(screen_width * 0.02),
-             classes_box.Rect.top - int(screen_height * 0.03))
+    draw_pin(
+        info_box.Rect.centerx - 20,
+        info_box.Rect.top - 30
+    )
 
     draw_text("Assigned Classes",
               x = classes_box.Rect.x + int(screen_width * 0.02),
@@ -205,8 +248,8 @@ def run_teacher_profile(events, show_change_pw_popup=False):
     # class cards grid — 2 per row
     classes    = teacher_data["classes"]
     cols       = 2
-    card_w     = int(classes_box.width * 0.44)
-    card_h     = int(screen_height * 0.12)
+    card_w = int(classes_box.width * 0.40)
+    card_h = int(screen_height * 0.09)
     gap_x      = int(screen_width  * 0.02)
     gap_y      = int(screen_height * 0.02)
     start_x    = classes_box.Rect.x + int(screen_width * 0.02)
