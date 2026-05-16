@@ -3,7 +3,7 @@ import pygame
 from stud_management import draw_stud_manage
 from teacher_dashboard import draw_dashboard
 import session
-from teacher_profile import run_teacher_profile
+#from teacher_profile import run_teacher_profile
 
 #temp hardcode
 session.current_user = {
@@ -53,12 +53,12 @@ while running:
         if action == "dashboard":
             current_page = "dashboard" 
 
-    elif current_page == "teacher_profile":
-        result, show_change_pw = run_teacher_profile(events, show_change_pw_popup)
-        if result == "dashboard":
-            current_page = "teacher_dashboard"
-        elif result == "manage_students":
-            current_page = "manage_students"
+    #elif current_page == "teacher_profile":
+     #   result, show_change_pw = run_teacher_profile(events, show_change_pw_popup)
+      #  if result == "dashboard":
+       #     current_page = "teacher_dashboard"
+        #elif result == "manage_students":
+         #   current_page = "manage_students"
 
     pygame.display.flip()
     clock.tick(60)
